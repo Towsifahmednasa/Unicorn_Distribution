@@ -1,0 +1,345 @@
+@model IEnumerable<SalesReport.Models.CoverageReportModel>
+@{
+    ViewData["Title"] = "Customer Coverage & Sales Detail Report";
+}
+
+<style>
+    /* Styling & Layout System */
+    .report-card {
+        background: #ffffff;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-top: 15px;
+    }
+
+    .report-header-title {
+        font-family: 'Calibri', 'Arial', sans-serif;
+        color: #005A5B;
+        font-weight: bold;
+        font-size: 24px;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    /* Excel COA Tree-Grid Styles */
+    .excel-style-table {
+        border-collapse: collapse;
+        width: 100%;
+        font-family: 'Calibri', 'Arial', sans-serif;
+        font-size: 14px;
+        background-color: #ffffff;
+        margin-top: 10px;
+    }
+
+    .excel-style-table th {
+        background-color: #005A5B !important; /* Dark teal background matching header */
+        color: #ffffff !important;
+        font-weight: bold;
+        text-align: center;
+        border: 1px solid #BFBFBF !important;
+        padding: 10px;
+        height: 35px;
+    }
+
+    .excel-style-table td {
+        border: 1px solid #BFBFBF !important;
+        padding: 8px 12px;
+        vertical-align: middle;
+        color: #000000;
+    }
+
+    /* Status Highlights */
+    .status-visited {
+        background-color: #E2EFDA !important; /* Light green background cell */
+        color: #375623 !important; /* Bold green text */
+        font-weight: bold;
+        text-align: center;
+    }
+
+    .status-not-visited {
+        background-color: #F8D7DA !important; /* Light red background cell */
+        color: #721C24 !important; /* Bold red text */
+        font-weight: bold;
+        text-align: center;
+    }
+
+    /* Double Underline Total Row (COA Accounting Standard) */
+    .total-row {
+        background-color: #ffffff !important;
+        font-weight: bold;
+    }
+
+    .total-row td {
+        border-top: 2px solid #000000 !important; /* Standard bold line */
+        border-bottom: 2px double #000000 !important; /* Double line footer */
+        font-weight: bold;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    .btn-excel-green {
+        background-color: #28a745;
+        border-color: #28a745;
+        color: #fff;
+        font-weight: bold;
+    }
+    .btn-excel-green:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+        color: #fff;
+    }
+
+    .text-right { text-align: right !important; }
+    .text-center { text-align: center !important; }
+    .text-left { text-align: left !important; }
+</style>
+
+<div class="container-fluid">
+    <div class="report-card">
+        
+        <!-- Filter Controls (Centered 2x2 Layout) -->
+        <div class="row justify-content-center g-3">
+            <div class="col-md-5">
+                <div class="row align-items-center">
+                    <label class="col-sm-4 form-label font-weight-bold text-end mb-0">From Date</label>
+                    <div class="col-sm-8">
+                        <input type="date" id="FromDate" class="form-control form-control-sm" />
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="row align-items-center">
+                    <label class="col-sm-4 form-label font-weight-bold text-end mb-0">To Date</label>
+                    <div class="col-sm-8">
+                        <input type="date" id="ToDate" class="form-control form-control-sm" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="padding-top: 10px;"></div>
+
+        <div class="row justify-content-center g-3">
+            <div class="col-md-5">
+                <div class="row align-items-center">
+                    <label class="col-sm-4 form-label font-weight-bold text-end mb-0">Employee</label>
+                    <div class="col-sm-8">
+                        <select id="EmployeeSelect" class="form-select form-select-sm">
+                            <option value="0">--- All Employees ---</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="row align-items-center">
+                    <label class="col-sm-4 form-label font-weight-bold text-end mb-0">DCR Status</label>
+                    <div class="col-sm-8">
+                        <select id="StatusSelect" class="form-select form-select-sm">
+                            <option value="All">All</option>
+                            <option value="Visited">Visited</option>
+                            <option value="Not Visited">Not Visited</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Buttons Panel (Search and Reset Centered) -->
+        <div class="row mt-3">
+            <div class="col-md-12 text-center">
+                <button type="button" id="btnSearch" class="btn btn-primary btn-sm px-3" onclick="GetReportData()">
+                    <i class="fa fa-search"></i>&nbsp; Search
+                </button>
+                <button type="button" id="btnReset" class="btn btn-secondary btn-sm px-3" onclick="ResetFilters()">
+                    <i class="fa fa-refresh"></i>&nbsp; Reset
+                </button>
+            </div>
+        </div>
+
+        <div style="padding-top: 25px;"></div>
+
+        <!-- Report Output Container -->
+        <div id="ReportContainer" style="display:none;">
+            <!-- Export Button Row -->
+            <div class="row align-items-center mb-3">
+                <div class="col-md-12 text-end">
+                    <button type="button" id="btnExport" class="btn btn-excel-green btn-sm" onclick="exportToExcel()">
+                        Export to Excel
+                    </button>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table id="dtTble" class="excel-style-table">
+                    <thead>
+                        <!-- Title Row matching report name -->
+                        <tr style="background-color: #ffffff !important; font-size: 16px; font-weight: bold;">
+                            <th colspan="8" style="color: #0000ff !important; background-color: #ffffff !important; text-align: center; border: 1px solid #BFBFBF !important;">Salesman Wise Customer Coverage & DCR Summary Sheet</th>
+                        </tr>
+                        <tr>
+                            <th style="width: 5%;">#SL No</th>
+                            <th style="width: 10%;">Salesman ID</th>
+                            <th style="width: 20%;">Salesman Name</th>
+                            <th style="width: 15%;">Total Assigned Customers</th>
+                            <th style="width: 15%;">Customers Visited (DCR Done)</th>
+                            <th style="width: 15%;">Customers Missed (No DCR)</th>
+                            <th style="width: 10%;">Coverage %</th>
+                            <th style="width: 15%;">Total Sales Amount (BDT)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="treeGridBody">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                    <tfoot id="treeGridFooter">
+                        <!-- Grand Total row -->
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script type="text/javascript">
+    $(function () {
+        // Set default dates
+        var date = new Date();
+        var firstDay = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+        var today = date.toISOString().split('T')[0];
+        $('#FromDate').val(firstDay);
+        $('#ToDate').val(today);
+    });
+
+    function formatNumber(num) {
+        return parseFloat(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function ResetFilters() {
+        var date = new Date();
+        var firstDay = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+        var today = date.toISOString().split('T')[0];
+        $('#FromDate').val(firstDay);
+        $('#ToDate').val(today);
+        $('#EmployeeSelect').val('0');
+        $('#StatusSelect').val('All');
+        $('#ReportContainer').hide();
+    }
+
+    function GetReportData() {
+        var startDate = $('#FromDate').val();
+        var endDate = $('#ToDate').val();
+        var empInfoId = $('#EmployeeSelect').val();
+        var filterStatus = $('#StatusSelect').val();
+
+        if (!startDate || !endDate) {
+            alert("Please select both start and end dates.");
+            return;
+        }
+
+        $.ajax({
+            url: '/Report/GetSalesmanCustomerVisitReportData',
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                startDate: startDate,
+                endDate: endDate,
+                empInfoId: parseInt(empInfoId) || 0,
+                filterStatus: filterStatus
+            },
+            success: function (result) {
+                if (result.length === 0) {
+                    var emptyHtml = "<tr><td colspan='8' class='text-center' style='font-weight:bold;color:#721c24;background-color:#f8d7da;'>No data available for the selected criteria</td></tr>";
+                    $('#treeGridBody').html(emptyHtml);
+                    $('#treeGridFooter').html('');
+                    $('#ReportContainer').show();
+                    return;
+                }
+
+                var tbodyHtml = "";
+                var totalAssigned = 0;
+                var totalVisited = 0;
+                var totalMissed = 0;
+                var totalCoverageSum = 0;
+                var totalSalesAmt = 0;
+
+                for (var i = 0; i < result.length; i++) {
+                    var row = result[i];
+                    var slNo = i + 1;
+                    var salesmanId = row["Salesman ID"] || '';
+                    var salesmanName = row["Salesman Name"] || '';
+                    var assigned = parseInt(row["Total Assigned Customers"]) || 0;
+                    var visited = parseInt(row["Customers Visited (DCR Done)"]) || 0;
+                    var missed = parseInt(row["Customers Missed (No DCR)"]) || 0;
+                    var coverage = parseFloat(row["Coverage %"]) || 0.0;
+                    var salesAmt = parseFloat(row["Total Sales Amount (BDT)"]) || 0.0;
+
+                    totalAssigned += assigned;
+                    totalVisited += visited;
+                    totalMissed += missed;
+                    totalCoverageSum += coverage;
+                    totalSalesAmt += salesAmt;
+
+                    tbodyHtml += "<tr>";
+                    tbodyHtml += "<td class='text-center'>" + slNo + "</td>";
+                    tbodyHtml += "<td class='text-center'>" + salesmanId + "</td>";
+                    tbodyHtml += "<td class='text-left'>" + salesmanName + "</td>";
+                    tbodyHtml += "<td class='text-center'>" + assigned + "</td>";
+                    tbodyHtml += "<td class='text-center'>" + visited + "</td>";
+                    tbodyHtml += "<td class='text-center'>" + missed + "</td>";
+                    tbodyHtml += "<td class='text-right'>" + coverage.toFixed(1) + "%</td>";
+                    tbodyHtml += "<td class='text-right'>" + formatNumber(salesAmt) + "</td>";
+                    tbodyHtml += "</tr>";
+                }
+
+                $('#treeGridBody').html(tbodyHtml);
+
+                var avgCoverage = result.length > 0 ? (totalCoverageSum / result.length) : 0.0;
+
+                // Add Double Underline Total Row in Footer (Total / Average)
+                var footerHtml = "<tr class='total-row'>";
+                footerHtml += "<td colspan='3' class='text-left'>Total / Average</td>";
+                footerHtml += "<td class='text-center'>" + totalAssigned + "</td>";
+                footerHtml += "<td class='text-center'>" + totalVisited + "</td>";
+                footerHtml += "<td class='text-center'>" + totalMissed + "</td>";
+                footerHtml += "<td class='text-right'>" + avgCoverage.toFixed(1) + "%</td>";
+                footerHtml += "<td class='text-right'>" + formatNumber(totalSalesAmt) + "</td>";
+                footerHtml += "</tr>";
+
+                $('#treeGridFooter').html(footerHtml);
+
+                $('#ReportContainer').show();
+            },
+            error: function (xhr) {
+                alert("Error retrieving report: " + xhr.responseText);
+            }
+        });
+    }
+
+    function exportToExcel() {
+        var tableHtml = $('#ReportContainer').html();
+        if ($('#ReportContainer').css('display') === 'none' || $('#treeGridBody tr').length === 0) {
+            alert("Please load the report data first before exporting.");
+            return;
+        }
+        
+        var file = new Blob([tableHtml], { type: "application/vnd.ms-excel" });
+        var url = URL.createObjectURL(file);
+        var filename = "Customer_Coverage_Sales_Detail_Report.xls";
+        
+        var a = $("<a />", {
+            href: url,
+            download: filename
+        }).appendTo("body");
+        
+        a.get(0).click();
+        
+        setTimeout(function () {
+            a.remove();
+            URL.revokeObjectURL(url);
+        }, 100);
+    }
+</script>
