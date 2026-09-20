@@ -18,7 +18,7 @@
         //public static string UserName = @"sa";
         //public static string PassWord = @"sa1234";
 
-        public static string DataSource = @"192.168.110.50\sa";
+        public static string DataSource = @"TOWSIF\MSSQLSERVER2019";
         public static string UserName = @"sa";
         public static string PassWord = @"sa1234";
 
@@ -27,8 +27,8 @@
         //public static string UserName = "sa";
         //public static string PassWord = "N@fcoZ@s2023#";
 
-        
-          
+
+
         //////Runing Server 
         //public static string DataSource = @"DESKTOP-BQ6IA92";
         //public static string UserName = @"sa";
@@ -63,7 +63,7 @@
         //public static string UserName = @"ePharmadb_Webuser";
         //public static string PassWord = @"Web_useR!#@**10##";
 
-      
+
 
 
         //public static string DataSource = @"192.168.110.50\sa";

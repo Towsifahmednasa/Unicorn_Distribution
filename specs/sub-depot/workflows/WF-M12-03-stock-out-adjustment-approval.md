@@ -1,0 +1,5 @@
+# WF-M12-03 Sub-depot stock out / adjustment and approval
+Two independent paths.
+**A. Direct adjustment (PAGE-448)**: select DC/sub-depot/product -> `SubDepoAdjustDAL.GetProductDcStoreSubdeport` -> Submit: INSERT `tblSubDepoStockAdjustment` (code SDC+id, EntryBy, EntryDate), detail INSERT + `tblSubDepotStore.StockQty = StockQty - qty` at once (BR-M12-021/022). No approval.
+**B. Voucher with approval**: PAGE-458 `submitButton_Click1` -> validation (BR-M12-023) -> INSERT `tblSubDepotStockOutMaster` Status 'Posted' (code SAD+8 digits) + `tblSubDepotStockOutDetails` (no stock change) -> PAGE-459 list (delete only if not Approved, BR-M12-026; print RPT-M12-07) -> PAGE-460/443 approval: gated by `tblAppSetup` (BR-M12-027); Approve -> `sp_UD_SubDcStockOutApproval` Status 'Approved' (stock effect UNKNOWN); Reject -> wrongly updates `tblDeStockOutMaster` (BR-M12-024/025).
+**State machine (B)**: Posted -> Approved | (Reject: sub-depot row unchanged). **Exceptions**: grid-index defects in PAGE-458 (GAP-M12-021); Session[ComUnitId] overwritten (BR-M12-046). Where approved voucher lines reduce stock is UNKNOWN (GAP-M12-001). Tests: PAGE-448 TC-01..10.

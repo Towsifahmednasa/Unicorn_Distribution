@@ -172,8 +172,6 @@ LEFT JOIN dbo.tblProCategory  cat  with (nolock) ON pro.CategoryId = cat.Categor
                 }
                 aProduct.ProductImage = row["ProductImage"].ToString();
 
-
-
             }
             return aProduct;
         }

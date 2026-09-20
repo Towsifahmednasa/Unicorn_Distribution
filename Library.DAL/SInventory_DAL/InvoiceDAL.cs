@@ -1610,7 +1610,7 @@ where IV.InvoiceNo in ('" + invNo.Trim() + "')  order by IV.InvoiceNo";
                             "   LEFT JOIN dbo.tblDCStore dc ON dc.DCStoreId = IVD.DCStoreId " +
                             "   LEFT JOIN dbo.tblInvoice IV ON IVD.InvoiceId = IV.InvoiceId " +
                      "  INNER JOIN dbo.tblInvoice I ON I.InvoiceId = IV.InvoiceId " +
-                    "   left JOIN dbo.tblProductDiscount PD ON PD.CustomerMasterId = I.CustomerMasterId AND PD.ProductCode = IVD.ProductCode   WHERE IV.InvoiceNo in ('" + invNo.Trim() + "') ";
+                    "   left JOIN dbo.tblProductDiscount PD ON PD.CustomerMasterId = I.CustomerMasterId AND PD.ProductCode = IVD.ProductCode   WHERE IV.InvoiceNo in (" + invNo.Trim() + ") ";
 
             return aCommonInternalDal.DataContainerDataTable(query, "SSIDB");
         }

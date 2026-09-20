@@ -59,6 +59,7 @@ public partial class SInventory_UI_ProductEntry : System.Web.UI.Page
         shippingCartonSizeDropDownList.SelectedValue = Product.CaseId.ToString();
         stockUOMDropDownList.SelectedValue = Product.StockUOMId.ToString();
         productCodeTextBox.Text = Product.ProductCode;
+        productCodeTextBox.ReadOnly = true;
 
         img_emp.ImageUrl = "../UploadFile/" + Product.ProductImage;
         hfDocFile.Value = Product.ProductImage;

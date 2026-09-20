@@ -33,3 +33,6 @@ NuGet.config
 
 # Contains DB credentials
 Web.config
+
+# graphify output
+graphify-out/

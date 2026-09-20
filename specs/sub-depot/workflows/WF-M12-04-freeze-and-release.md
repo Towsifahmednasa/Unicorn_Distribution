@@ -1,0 +1,4 @@
+# WF-M12-04 Freeze (quarantine) and release
+**Creation**: PAGE-446 damage>0 -> INSERT `tblSubDepotStoreFreeze` Restricted (BR-M12-016); sub-depot sales return -> `ReturnInvoiceDAL.SubDCStockInDAL` inserts `ReturnStock` (`ReturnInvoiceDAL.cs:1212-1224`). DC-side twin: `tblDCStoreFreeze` (PAGE-441).
+**Release (PAGE-453)**: Search `OtherStockActionDAL.SubDeportLoadData` (BR-M12-028) -> tick + Return Qty -> Add -> green button `submitButton0_OnClick`: checks (BR-M12-029/031); `tblSubDepotStoreFreeze.StockQty -= qty`; `tblSubDepotStore.StockQty += qty` (BR-M12-030).
+**State**: frozen qty -> 0; store Available +qty. No status column; Restricted release only login 21900. **Valuation**: Amount = UnitPrice x qty (trade price). Reports: RPT-M12-06 shows Restricted/Blocked buckets. Tests: PAGE-453 TC-01..10.

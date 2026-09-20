@@ -1,0 +1,14 @@
+# WF-M15-06 Attendance, shifts and attendance approval
+
+**Actors:** field staff (attendance captured by mobile app into `tblMarketAttendance_Master_webapi`, columns seen: `AttendanceDate`, `ApprovalStatus`, `AttType`, `EmpInfoId`), managers/HR (web). **Pages:** PAGE-585/586 shifts, PAGE-562 `AttendanceInfoList`, PAGE-563 `AttendanceInfoReport`, PAGE-564 `AttendanceListApproval`.
+
+1. **Shifts:** `ShiftInfoEntry.aspx/Save_ShiftInfo` -> `AttendanceDAL.Save_ShiftInfo`: id>0 -> `sp_check_Employee_ShiftInfos(@ShiftId,@ShiftText)` empty -> `sp_Update_Employee_ShiftInfos`; id 0 -> `sp_Save_ShiftInfos(@ShiftText,@ShiftInTime,@ShiftOutTime,@IsActive,@Activedate)`. Employees are assigned shifts in onboarding (`tblEmpwiseShiftDeclare`, WF-M15-01). Late/absent rules from shift times: UNKNOWN (no code).
+2. **List (PAGE-562):** filters date range, status, role, employee become `param`; then scoped by the viewer's role type: `MIO` -> `MIOEmpId`, `AM` -> `ASMEMPId`, `DZSM` -> `RSMEMPId`, `NSM` -> `NSMEMPId` taken from `sp_Get_EmployeeFieldForceInfo_EmpId(Session EmpInfoId)`; other roles unrestricted; data from `AttendanceDAL.Get_Emp_AttendanceInfoList` (`sp_Get_Emp_AttendanceInfoList`) (BR-M15-069). Report page 563 adds a per-day row view `sp_Get_Emp_AttendanceInfoDayRow`.
+3. **Approval (PAGE-564):** requires permission row unless `UserRoleID==2` (BR-M15-053). `LoadData` builds raw-SQL filters (date range default today, `ApprovalStatus`, `AttType`, role, employee, optional depot for DIC users fixed to `DICCompanyUnitId`) -> `CustomerInfoDAL.GetAttendence_Applog(param, Role="", ...)` -> `sp_Get_AttendanceInformation`. Row actions:
+   - visibility: role types 5,4,14,9 see everything; others only rows whose hidden `hfToRoleTypeId == Session RoleTypeId` else `Waiting for Another Approver` (BR-M15-051);
+   - Approve: `Accepted` if `RoleTypeId==5` else `Verified`; Reject `Rejected`; `AttendanceLog{TableId=hfCustomerMasterId, FromEmpId=Session EmpInfoId, ToEmpId=hfToEmpId, Step=hfStep+1, Type="Expense", MenuId=356, Group/Region/Area/Territory=0}` -> `CustomerInfoDAL.SaveAttandaceAppLog` -> `sp_webapi_SaveAppLog` (BR-M15-050, 054);
+   - Bulk approve/reject: loops ticked rows whose action link is visible, counts successes/failures (`n record(s) approved successfully! m failed.`) (BR-M15-052).
+   - Alternative WebMethods `Get_AttendanceList_Approval` (`sp_Get_Emp_AttendanceInfoListPending`) and `Approve_AttendanceList(MyArry, rbValue)` -> `sp_ApproveAttendanceInformation(@AttendanceId,@ApprovedBy,@Status)` (bool status) - second, unrelated approval mechanism (GAP-M15-013).
+4. Postcondition: attendance `ApprovalStatus` changes via SP (UNKNOWN); reports read it.
+
+**BR:** 050-054, 069. **Tests:** AM sees only own-area attendance; role-5 approves; bulk approve mixed rows; non-admin without permission row redirected.

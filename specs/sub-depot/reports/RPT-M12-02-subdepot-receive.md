@@ -1,0 +1,2 @@
+# RPT-M12-02 Sub-depot receive report
+Viewer `SubDeportTransferStockReceiveReportViewer.aspx.cs`; report `rptChalanReceive.rpt` (Library.CrystalReports); dataset `dcstockDataTable`. Data: `ChalanBLL.SubdeportDCStoreReport(chalanNo)` -> `ChalanDAL.cs:598-617` (tblSubDepotStore LEFT JOIN tblSubDepotChalanDetail, tblDCStore, ..., tblSubDepot, tblUnitPrice IsActive=1 WHERE tblSubDepotStore.ChalanNo=@ChalanNo). Param QueryString `ChalanId` (= chalan number). Opened by PAGE-446 after save. Note it lists stock rows with price/VAT (join to active price).

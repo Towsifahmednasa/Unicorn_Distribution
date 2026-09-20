@@ -1,0 +1,2 @@
+# RPT-M12-07 Sub-depot stock-out voucher
+Viewer `SubDepotStockOutReportViewer.aspx.cs` (class SInventory_RPTVIEW_DcStockOutReportViewer); report `Solution.Web/Reports/CrystalReports/crpSubDepotStockOut.rpt`; dataset `DcStockOutDT`; data `SubDepotStockAdjustmentsVoucherBll.SubDcStockOutReportViewBll(id)` -> `SubDepotStockAdjustmentsVoucherDal.cs:125-136` (master + details + tblCompanyUnit + tblSubInvoiceMaster). Param QueryString `SubDcStockOutMasterId`. Opened from PAGE-459 and approval pages.

@@ -1,0 +1,3 @@
+# M02 reports
+
+M02 contains no report pages and references no `.rpt` or dataset. Evidence: no Crystal/ReportViewer reference in the code-behind of PAGE-012…027, except one dead remnant: `Reports_UI/OrderPermission.aspx.cs` `PopUp()` builds `../SInventory_RPTVIEW/EmployeeExpenseReportViewer.aspx?rptType=<empIds>&Month=&Year=&fType=`, reachable only through the hidden `btnPrint`/`btnExportToExcel` buttons (`display:none`) — an expense-report viewer copied from another page, not an M02 report (GAP-M02-021). The list pages (`UserRecords`, `UserRoleRecords`, `UserView`) are on-screen grids; `UserView` shows the plaintext Password column (GAP-M02-002).
