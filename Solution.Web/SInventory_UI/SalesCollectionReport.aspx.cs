@@ -267,7 +267,7 @@ public partial class SInventory_UI_SalesCollectionReport : System.Web.UI.Page
                 if (loadGridView.Columns[colIndex].Visible)
                 {
                     visibleColIndices.Add(colIndex);
-                    sb.Append(HttpUtility.HtmlDecode(loadGridView.HeaderRow.Cells[colIndex].Text) + ',');
+                    sb.Append(CsvEscape(HttpUtility.HtmlDecode(loadGridView.HeaderRow.Cells[colIndex].Text)) + ',');
                 }
             }
             sb.Append("\r\n");
@@ -278,14 +278,7 @@ public partial class SInventory_UI_SalesCollectionReport : System.Web.UI.Page
                 {
                     TableCell cell = row.Cells[colIndex];
                     string cellText = HttpUtility.HtmlDecode(cell.Text).Trim();
-                    if (cellText.Contains(","))
-                    {
-                        sb.Append(String.Format("\"{0}\",", cellText));
-                    }
-                    else
-                    {
-                        sb.Append(cellText + ',');
-                    }
+                    sb.Append(CsvEscape(cellText) + ',');
                 }
                 sb.Append("\r\n");
             }
@@ -298,6 +291,15 @@ public partial class SInventory_UI_SalesCollectionReport : System.Web.UI.Page
         {
             showMessageBox("No Data Found to Export!");
         }
+    }
+
+    private static string CsvEscape(string value)
+    {
+        if (value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0)
+        {
+            return "\"" + value.Replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private void showMessageBox(string message)

@@ -302,95 +302,91 @@ WHERE ReqId = @ReqId";
            });
        }
 
-        public DataTable GetCurrentStockofCentralStock(string productCode)
-        {
-            string query = @"
-            WITH InboundLots AS (
-                SELECT 
-                    BS.Batch_Stock_Id   AS ReceiveId,
-                    BS.Weighted_Avg_Id  AS Inbound_WAvg_Id,
-                    BS.Batch_No         AS BatchNo,
-                    BS.Trans_Qty        AS InboundQty,
-                    BS.Exp_Date         AS ExpDate,
-                    BS.Mfg_Date         AS mfgDate,
-                    WAVG.Trans_Date     AS ReceiveDate
+        // Availability is netted per batch (SUM of ALL +/- rows), NOT joined on Issue_Weighted_Avg_Id:
+        // historical issue rows carry corrupt refs (chained/orphaned ids), so a ref-join loses their
+        // deductions and shows phantom stock. An item-level cap absorbs issues booked under a wrong
+        // batch label. Within a batch, remaining qty is allocated to the newest lots (oldest went out
+        // first, FEFO), so lot-level ReceiveId/ExpDate attribution is an approximation; batch totals
+        // are exact.
+        private const string CentralStockAvailabilityQuery = @"
+            WITH AllRows AS (
+                SELECT
+                    BS.Batch_Stock_Id,
+                    ISNULL(BS.Batch_No,'') AS BatchNo,
+                    BS.Trans_Qty,
+                    BS.Exp_Date,
+                    BS.Mfg_Date,
+                    WAVG.Trans_Date
                 FROM dbo.tbl_INV_Central_BatchWiseStock BS
                 INNER JOIN dbo.tbl_INV_CentralStore_WeightedAvg WAVG ON BS.Weighted_Avg_Id = WAVG.Weighted_Avg_Id
-                WHERE WAVG.Item_Code = @ProductCode
-                  AND BS.Trans_Qty > 0
+                WHERE WAVG.Item_Code = @ProductCode {0}
             ),
-            OutboundSum AS (
-                SELECT 
-                    Issue_Weighted_Avg_Id AS Inbound_WAvg_Id,
-                    Batch_No,
-                    SUM(ABS(Trans_Qty)) AS IssuedQty
-                FROM dbo.tbl_INV_Central_BatchWiseStock
-                WHERE Trans_Qty < 0
-                GROUP BY Issue_Weighted_Avg_Id, Batch_No
+            BatchNet AS (
+                SELECT BatchNo, SUM(Trans_Qty) AS NetQty FROM AllRows GROUP BY BatchNo
+            ),
+            ItemNet AS (
+                SELECT SUM(Trans_Qty) AS ItemQty FROM AllRows
+            ),
+            Lots AS (
+                SELECT Batch_Stock_Id, BatchNo, Trans_Qty AS InQty, Exp_Date, Mfg_Date, Trans_Date,
+                       SUM(Trans_Qty) OVER (PARTITION BY BatchNo ORDER BY Trans_Date DESC, Batch_Stock_Id DESC
+                                            ROWS UNBOUNDED PRECEDING) AS CumNewest
+                FROM AllRows WHERE Trans_Qty > 0
+            ),
+            LotAvail AS (
+                SELECT L.Batch_Stock_Id, L.BatchNo, L.Exp_Date, L.Mfg_Date, L.Trans_Date,
+                       CASE WHEN B.NetQty >= L.CumNewest THEN L.InQty
+                            WHEN B.NetQty > L.CumNewest - L.InQty THEN B.NetQty - (L.CumNewest - L.InQty)
+                            ELSE 0 END AS Qty
+                FROM Lots L
+                INNER JOIN BatchNet B ON B.BatchNo = L.BatchNo
+                WHERE B.NetQty > 0
+            ),
+            Capped AS (
+                SELECT LA.Batch_Stock_Id, LA.BatchNo, LA.Exp_Date, LA.Mfg_Date, LA.Trans_Date, LA.Qty,
+                       SUM(LA.Qty) OVER (ORDER BY LA.Exp_Date, LA.Trans_Date, LA.Batch_Stock_Id
+                                         ROWS UNBOUNDED PRECEDING) AS CumFefo,
+                       I.ItemQty
+                FROM LotAvail LA CROSS JOIN ItemNet I
+                WHERE LA.Qty > 0
             )
-            SELECT 
-                IB.ReceiveId,
-                IB.BatchNo,
-                (IB.InboundQty - ISNULL(OB.IssuedQty, 0)) AS Quantity,
-                IB.ExpDate,
-                IB.mfgDate,
-                IB.ReceiveDate
-            FROM InboundLots IB
-            LEFT JOIN OutboundSum OB ON IB.Inbound_WAvg_Id = OB.Inbound_WAvg_Id AND IB.BatchNo = OB.Batch_No
-            WHERE (IB.InboundQty - ISNULL(OB.IssuedQty, 0)) > 0
-            ORDER BY IB.ExpDate, IB.ReceiveDate;";
+            SELECT
+                Batch_Stock_Id AS ReceiveId,
+                BatchNo,
+                CASE WHEN ItemQty >= CumFefo THEN Qty
+                     WHEN ItemQty > CumFefo - Qty THEN ItemQty - (CumFefo - Qty)
+                     ELSE 0 END AS Quantity,
+                Exp_Date  AS ExpDate,
+                Mfg_Date  AS mfgDate,
+                Trans_Date AS ReceiveDate
+            FROM Capped
+            WHERE CASE WHEN ItemQty >= CumFefo THEN Qty
+                       WHEN ItemQty > CumFefo - Qty THEN ItemQty - (CumFefo - Qty)
+                       ELSE 0 END > 0
+            ORDER BY ExpDate, ReceiveDate;";
 
-            return SInventorySql.GetDataTable(query, new List<SqlParameter>
+        public DataTable GetCurrentStockofCentralStock(string productCode)
+        {
+            string query = string.Format(CentralStockAvailabilityQuery, "");
+
+            // EntLib pool (same as Execute) so the picking TransactionScope is not promoted to MSDTC.
+            return aCommonInternalDal.DataContainerDataTable(query, new List<SqlParameter>
             {
                 new SqlParameter("@ProductCode", SInventorySql.DbValue(productCode.Trim()))
-            });
+            }, "SSIDB");
         }
 
         public DataTable GetCurrentStockofCentralStockByBatch(string productCode, string BatchNO)
         {
-            string query = @"
-            WITH InboundLots AS (
-                SELECT 
-                    BS.Batch_Stock_Id   AS ReceiveId,
-                    BS.Weighted_Avg_Id  AS Inbound_WAvg_Id,
-                    BS.Batch_No         AS BatchNo,
-                    BS.Trans_Qty        AS InboundQty,
-                    BS.Exp_Date         AS ExpDate,
-                    BS.Mfg_Date         AS mfgDate,
-                    WAVG.Trans_Date     AS ReceiveDate
-                FROM dbo.tbl_INV_Central_BatchWiseStock BS
-                INNER JOIN dbo.tbl_INV_CentralStore_WeightedAvg WAVG ON BS.Weighted_Avg_Id = WAVG.Weighted_Avg_Id
-                WHERE WAVG.Item_Code = @ProductCode
-                  AND BS.Batch_No = @BatchNO
-                  AND BS.Trans_Qty > 0
-            ),
-            OutboundSum AS (
-                SELECT 
-                    Issue_Weighted_Avg_Id AS Inbound_WAvg_Id,
-                    Batch_No,
-                    SUM(ABS(Trans_Qty)) AS IssuedQty
-                FROM dbo.tbl_INV_Central_BatchWiseStock
-                WHERE Trans_Qty < 0
-                  AND Batch_No = @BatchNO
-                GROUP BY Issue_Weighted_Avg_Id, Batch_No
-            )
-            SELECT 
-                IB.ReceiveId,
-                IB.BatchNo,
-                (IB.InboundQty - ISNULL(OB.IssuedQty, 0)) AS Quantity,
-                IB.ExpDate,
-                IB.mfgDate,
-                IB.ReceiveDate
-            FROM InboundLots IB
-            LEFT JOIN OutboundSum OB ON IB.Inbound_WAvg_Id = OB.Inbound_WAvg_Id AND IB.BatchNo = OB.Batch_No
-            WHERE (IB.InboundQty - ISNULL(OB.IssuedQty, 0)) > 0
-            ORDER BY IB.ExpDate, IB.ReceiveDate;";
+            // Same netting as GetCurrentStockofCentralStock, scoped to one batch.
+            string query = string.Format(CentralStockAvailabilityQuery, "AND ISNULL(BS.Batch_No,'') = ISNULL(@BatchNO,'')");
 
-            return SInventorySql.GetDataTable(query, new List<SqlParameter>
+            // EntLib pool (same as Execute) so the picking TransactionScope is not promoted to MSDTC.
+            return aCommonInternalDal.DataContainerDataTable(query, new List<SqlParameter>
             {
                 new SqlParameter("@ProductCode", SInventorySql.DbValue(productCode.Trim())),
                 new SqlParameter("@BatchNO", SInventorySql.DbValue(BatchNO))
-            });
+            }, "SSIDB");
         }
 
         public bool UpdateCentralStockStockOut(decimal quantity, string receiveId)
@@ -409,8 +405,27 @@ WHERE ReqId = @ReqId";
 
             aSqlParameterList.Add(new SqlParameter("@StockInTransfarId", stockInTransferId));
 
-            //return aCommonInternalDal.UpdateAction("sp_DeliveryConfirmationFullPosting", aSqlParameterList);
-            return aCommonInternalDal.UpdateAction("tbl_INV_CentralStoreStoIssue", aSqlParameterList);
+            // Throws on SP failure (UpdateAction swallowed it) so the picking transaction rolls back.
+            aCommonInternalDal.ExecuteStoredProcedure("tbl_INV_CentralStoreStoIssue", aSqlParameterList);
+            return true;
+        }
+
+        // Race-safe duplicate gate for picking. UPDLOCK on the requisition row is held until the
+        // ambient transaction ends, so a concurrent/double-click save blocks here, then sees the
+        // committed tblStockInTransfar rows and stops. Same EntLib connection as Execute (no MSDTC).
+        public bool IsPickingAlreadyDone(string reqId)
+        {
+            string query = @"SELECT (SELECT COUNT(1) FROM dbo.tblStockInTransfar WHERE ReqId=@ReqId) AS Cnt
+                             FROM dbo.tblRequisition WITH (UPDLOCK, ROWLOCK) WHERE ReqId=@ReqId";
+            DataTable dt = aCommonInternalDal.DataContainerDataTable(query, new List<SqlParameter>
+            {
+                new SqlParameter("@ReqId", SInventorySql.DbValue(reqId))
+            }, "SSIDB");
+            if (dt.Rows.Count == 0)
+            {
+                return true; // unknown requisition: nothing valid to pick
+            }
+            return Convert.ToInt32(dt.Rows[0][0]) > 0;
         }
 
 //       public bool StockInTransfarInsertDAL(StockInTransfar aStockInTransfar)

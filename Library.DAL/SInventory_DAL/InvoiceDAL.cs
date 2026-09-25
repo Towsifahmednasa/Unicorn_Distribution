@@ -654,6 +654,19 @@ WHERE ord.OrderCode=@OrderCode";
                 Param("@BatchNo", aReceive.BatchNo)
             });
         }
+        public bool IsDeliveryAlreadyConfirmed(int invoiceId)
+        {
+            // Race-safe duplicate gate for delivery confirmation. UPDLOCK is held until the
+            // ambient transaction ends, so a concurrent save of the same invoice blocks here
+            // and then sees the first transaction's committed DelivaryInvoiceNo.
+            string query = "SELECT ISNULL(DelivaryInvoiceNo,'') AS DelivaryInvoiceNo FROM dbo.tblInvoice WITH (UPDLOCK, ROWLOCK) WHERE InvoiceId=@InvoiceId";
+            DataTable dt = SInventorySql.GetDataTable(query, new List<SqlParameter>
+            {
+                Param("@InvoiceId", invoiceId)
+            });
+            return dt.Rows.Count > 0 && dt.Rows[0][0].ToString() != "";
+        }
+
         public DataTable DCInfoWithDCId(string dcstoreId)
         {
             string query = "SELECT * FROM dbo.tblDCStore WHERE DCStoreId=@DCStoreId";

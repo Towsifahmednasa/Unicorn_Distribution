@@ -31,18 +31,16 @@ namespace Library.DAL.SInventory_DAL
                 new SqlParameter("@ComUnitId", SInventorySql.DbValue(ComUnitId))
             });
         }
-          public void LoadInvoicesByRoute(DropDownList ddl, string ComUnitId,  string routeID)
+        public void LoadInvoicesByDepo(DropDownList ddl, string ComUnitId)
         {
-            
             ClsCommonInternalDAL aInternalDal = new ClsCommonInternalDAL();
-            string queryStr = @"SELECT mas.CustomerCode+' : '+mas.CustomerName+' ['+ INV.InvoiceNo+']' InvoiceNo, INV.InvoiceId 
+            string queryStr = @"SELECT DISTINCT mas.CustomerCode+' : '+mas.CustomerName+' ['+ INV.InvoiceNo+']' InvoiceNo, INV.InvoiceId
                                 FROM tblInvoice AS INV  with (nolock)
                                 INNER JOIN tblOrder AS mas   with (nolock) ON INV.OrderId = mas.OrderId
-                                INNER JOIN tblCustPayDetail AS CPD   with (nolock) ON INV.InvoiceId = CPD.InvoiceId  where mas.ComUnitId=@ComUnitId and mas.DistributionRouteId=@DistributionRouteId";
+                                INNER JOIN tblCustPayDetail AS CPD   with (nolock) ON INV.InvoiceId = CPD.InvoiceId  where mas.ComUnitId=@ComUnitId";
             aInternalDal.LoadDropDownValueWithoutDataBase(ddl, "InvoiceNo", "InvoiceId", queryStr, new List<SqlParameter>
             {
-                new SqlParameter("@ComUnitId", SInventorySql.DbValue(ComUnitId)),
-                new SqlParameter("@DistributionRouteId", SInventorySql.DbValue(routeID))
+                new SqlParameter("@ComUnitId", SInventorySql.DbValue(ComUnitId))
             });
         }
 

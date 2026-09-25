@@ -203,8 +203,8 @@
 
                                         <div class="row mt-3">
                                             <div class="col-12 text-center">
-                                                <asp:Button ID="Button1" runat="server" Text="Save Return" OnClick="saveButton_Click" CssClass="btn btn-sm btn-success px-4 me-2"
-                                                    OnClientClick="return confirm('Are you sure you want to Return Invoice ?');" /> 
+                                                <asp:Button ID="Button1" runat="server" Text="Save Return" OnClick="saveButton_Click" CssClass="btn btn-sm btn-success px-4 me-2" UseSubmitBehavior="false"
+                                                    OnClientClick="if (!confirm('Are you sure you want to Return Invoice ?')) return false; this.disabled = true; this.value = 'Saving...';" />
                                                 <asp:Button ID="clearButton" runat="server" OnClick="clearButton_OnClick" CssClass="btn btn-sm btn-danger px-4"
                                                     Text="Clear" />
                                             </div>

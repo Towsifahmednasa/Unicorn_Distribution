@@ -84,31 +84,14 @@ public partial class SInventory_UI_CustomerPaymentDelete : System.Web.UI.Page
         DepoNameDropDownList.SelectedValue = "";
 
     }
-    private static SeedDataDAL _seedRepo = new SeedDataDAL();
     public void depoNameDropDownList_SelectedIndexChanged(object sender, EventArgs e)
     {
         InvoiceNoDropDownList.Items.Clear();
-        try
-        { 
-            
-                using (DataTable dt = _seedRepo.GetRouteInfoforCustPayment(Convert.ToInt32(DepoNameDropDownList.SelectedValue)))
-                {
-                    rootDropDownList.DataSource = dt;
-
-                    rootDropDownList.DataValueField = "DistributionRouteId";
-                    rootDropDownList.DataTextField = "DistributionRouteName";
-                    rootDropDownList.DataBind();
-                    rootDropDownList.Items.Insert(0, new ListItem("Please Select From List", String.Empty));
-                    rootDropDownList.SelectedIndex = 0;
-                }
-
-
-             
- 
-        }
-        catch (Exception ex)
+        invoiceGridView.DataSource = null;
+        invoiceGridView.DataBind();
+        if (DepoNameDropDownList.SelectedValue != "")
         {
-
+            customerPaymentDeleteBLL.LoadInvoicesByDepo(InvoiceNoDropDownList, DepoNameDropDownList.SelectedValue);
         }
     }
 
@@ -220,17 +203,5 @@ public partial class SInventory_UI_CustomerPaymentDelete : System.Web.UI.Page
         //lblCount.Text = "Total Pay Amount: 0";
         //LoadGridView();
 
-    }
-
-
-    protected void rootDropDownList_SelectedIndexChanged(object sender, EventArgs e)
-    {
-
-        InvoiceNoDropDownList.Items.Clear();
-
-        customerPaymentDeleteBLL.LoadInvoicesByRoute(
-                       InvoiceNoDropDownList,
-                       DepoNameDropDownList.SelectedValue,
-                       rootDropDownList.SelectedValue);
     }
 }

@@ -628,7 +628,8 @@
                             <!-- Action Buttons Section -->
                             <div class="row mt-4 mb-3">
                                 <div class="col-12 text-center">
-                                    <asp:LinkButton ID="LinkButton3" CssClass="btn btn-success px-5 py-2 shadow-sm font-weight-bold me-3" runat="server" OnClick="submitButton_Click">
+                                    <asp:LinkButton ID="LinkButton3" CssClass="btn btn-success px-5 py-2 shadow-sm font-weight-bold me-3" runat="server" OnClick="submitButton_Click"
+                                        OnClientClick="if (this.dataset.busy === '1') return false; this.dataset.busy = '1'; this.classList.add('disabled'); this.innerHTML = '<i class=&quot;fa fa-spinner fa-spin&quot;></i> &amp;nbsp;Saving...';">
                                         <i class="fa fa-check-circle"></i> &nbsp;Submit Return Information
                                     </asp:LinkButton>
                                     <asp:LinkButton ID="LinkButton4" CssClass="btn btn-outline-danger px-4 py-2 shadow-sm font-weight-bold" runat="server" OnClick="cancelButton_Click">

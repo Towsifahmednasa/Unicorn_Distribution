@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Transactions;
 using System.Linq;
 using System.Web;
 using System.Web.UI;
@@ -919,16 +920,38 @@ public partial class SInventory_UI_DelivaryInvoiceCreationForCustomerByOrderAuto
                 {
                     if (dt.Rows.Count == 0)
                     {
+                        var txOpt = new TransactionOptions
+                        {
+                            IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+                            Timeout = TimeSpan.FromMinutes(5)
+                        };
+                        using (var scope = new TransactionScope(TransactionScopeOption.Required, txOpt))
+                        {
+                            // Race-safe duplicate gate (UPDLOCK, held to end of transaction):
+                            // a concurrent save of the same invoice blocks here, then sees the
+                            // committed DelivaryInvoiceNo and stops without writing anything.
+                            if (aInvoiceBll.IsDeliveryAlreadyConfirmed(Convert.ToInt32(invoiceHiddenField.Value)))
+                            {
+                                ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "faildalert('" + "This delivery has already been processed." + "','Faild');", true);
+                                Clear();
+                                return;
+                            }
 
-                        int invId = SaveInvoice();
+                            int invId = SaveInvoice();
 
-                        //aInvoiceBll.UP_LoadingSummaryInvoice(invoiceHiddenField.Value,
-                        //                Session["LoginName"].ToString(), "Partial Dues");
-                        SaveInvoiceDetail(invId);
+                            //aInvoiceBll.UP_LoadingSummaryInvoice(invoiceHiddenField.Value,
+                            //                Session["LoginName"].ToString(), "Partial Dues");
+                            if (!SaveInvoiceDetail(invId))
+                                throw new Exception("Invoice detail save failed");
 
-                        aInvoiceBll.PostDeliveryConfPartialJournal(Convert.ToInt32(invoiceHiddenField.Value));
+                            // Journal SP posts only when delivered amount > 0 (all-Reject delivery is a
+                            // designed no-op that reports false), so treat false as failure only then.
+                            if (!aInvoiceBll.PostDeliveryConfPartialJournal(Convert.ToInt32(invoiceHiddenField.Value))
+                                && Convert.ToDecimal(grandTotalTextBox.Text.Trim()) > 0)
+                                throw new Exception("Journal posting failed");
 
-
+                            scope.Complete();
+                        }
 
                         //if(autopayment.Checked)
                         //{
@@ -948,7 +971,7 @@ public partial class SInventory_UI_DelivaryInvoiceCreationForCustomerByOrderAuto
             catch (Exception exception)
             {
                // throw exception;
-                showMessageBox("Some Networks Error blocked Your Transaction Please Contract Administrator!!");
+                showMessageBox("Delivery confirmation failed: " + exception.Message);
             }
         }
       
@@ -1084,7 +1107,8 @@ public partial class SInventory_UI_DelivaryInvoiceCreationForCustomerByOrderAuto
                                           .Text);
                         //aInvoiceBll.SaveDCStoreFreeze(aDcStockNew);
                         //aInvoiceBll.UpdateDCStock(qty, aDcStockNew.DCStoreId);
-                        aInvoiceBll.ReturnToDCStore(qty, aDcStockNew.DCStoreId, aInvoiceDetail.InvoiceDetailId);
+                        if (!aInvoiceBll.ReturnToDCStore(qty, aDcStockNew.DCStoreId, aInvoiceDetail.InvoiceDetailId))
+                            throw new Exception("Return to DC store failed for product " + aInvoiceDetail.ProductCode);
                     }
                 }
 

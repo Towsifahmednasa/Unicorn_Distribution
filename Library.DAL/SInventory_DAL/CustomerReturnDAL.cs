@@ -83,7 +83,9 @@ namespace Library.DAL.SInventory_DAL
             LEFT JOIN (SELECT InvoiceDetailId,ISNULL(SUM(ReturnQty),0)Qty FROM dbo.tblCustomerReturnDetail GROUP BY InvoiceDetailId)AS  tbltemp
             ON tbltemp.InvoiceDetailId = tblInvoiceDetail.InvoiceDetailId
             LEFT JOIN (SELECT InvoiceId,SUM(PaymentAmount)Amnt FROM dbo.tblCustPayDetail GROUP BY InvoiceId) AS tbltemp2 ON tbltemp2.InvoiceId = tblInvoice.InvoiceId
-            WHERE DelivaryInvoiceNo='" + delinvno + "' AND ISNULL(ODR.IsDirect,0) = 0  AND tblInvoice.InvoiceId NOT IN (SELECT DISTINCT A.InvoiceId FROM dbo.tblCustomerReturnMaster A)";
+            WHERE DelivaryInvoiceNo='" + delinvno + "' AND ISNULL(ODR.IsDirect,0) = 0 ";
+
+            //AND tblInvoice.InvoiceId NOT IN(SELECT DISTINCT A.InvoiceId FROM dbo.tblCustomerReturnMaster A)
 
             return aCommonInternalDal.DataContainerDataTable(query, "SSIDB");
         }
@@ -178,6 +180,47 @@ LEFT JOIN dbo.tblCustMaster ON tblCustMaster.CustomerMasterId = tblInvoice.Custo
             string query = "SELECT OrderSenderName FROM tblOrder WHERE OrderId='" + orderId + "'";
             return aCommonInternalDal.DataContainerDataTable(query, "SSIDB");
         }
+        // Race-safe gate: takes a U-lock on the invoice row for the duration of the ambient
+        // transaction, so two concurrent returns against the same invoice serialize here.
+        public bool LockInvoiceForReturn(int invoiceId)
+        {
+            List<SqlParameter> aSqlParameterList = new List<SqlParameter>();
+            aSqlParameterList.Add(new SqlParameter("@InvoiceId", invoiceId));
+            string query = "SELECT InvoiceId FROM dbo.tblInvoice WITH (UPDLOCK, ROWLOCK) WHERE InvoiceId = @InvoiceId";
+            return aCommonInternalDal.DataContainerDataTable(query, aSqlParameterList, "SSIDB").Rows.Count > 0;
+        }
+
+        // True if any line of this invoice now has more returned than was delivered.
+        // Called inside the save transaction, after the detail inserts.
+        public bool HasOverReturn(int invoiceId)
+        {
+            List<SqlParameter> aSqlParameterList = new List<SqlParameter>();
+            aSqlParameterList.Add(new SqlParameter("@InvoiceId", invoiceId));
+            string query = @"SELECT COUNT(*) AS Cnt
+                FROM dbo.tblInvoiceDetail D
+                LEFT JOIN (SELECT InvoiceDetailId, ISNULL(SUM(ReturnQty),0) Qty
+                           FROM dbo.tblCustomerReturnDetail GROUP BY InvoiceDetailId) R
+                       ON R.InvoiceDetailId = D.InvoiceDetailId
+                WHERE D.InvoiceId = @InvoiceId AND ISNULL(R.Qty,0) > ISNULL(D.DeliveryTotalQuantity,0)";
+            System.Data.DataTable dt = aCommonInternalDal.DataContainerDataTable(query, aSqlParameterList, "SSIDB");
+            return dt.Rows.Count > 0 && Convert.ToInt32(dt.Rows[0]["Cnt"]) > 0;
+        }
+
+        // sp_DeliverySalesReturnPosting has SET NOCOUNT ON, so PostDeliverySalesReturn's bool is
+        // false even on success. This mirrors the SP's own logic instead: TotalAmount <= 0 is the
+        // SP's designed early-RETURN no-op (OK); otherwise IsPosting=1 (the SP's last statement,
+        // set only after all voucher inserts) proves the posting ran to completion.
+        public bool IsDeliverySalesReturnPosted(int custReturnId)
+        {
+            List<SqlParameter> aSqlParameterList = new List<SqlParameter>();
+            aSqlParameterList.Add(new SqlParameter("@CustReturnId", custReturnId));
+            string query = @"SELECT CASE WHEN ISNULL(TotalAmount,0) <= 0 THEN 1
+                                         ELSE CAST(ISNULL(IsPosting,0) AS INT) END AS Posted
+                             FROM dbo.tblCustomerReturnMaster WHERE CustReturnId = @CustReturnId";
+            System.Data.DataTable dt = aCommonInternalDal.DataContainerDataTable(query, aSqlParameterList, "SSIDB");
+            return dt.Rows.Count > 0 && Convert.ToInt32(dt.Rows[0]["Posted"]) == 1;
+        }
+
         public bool InsertDCStoreStockReturn(int invoiceDetailId, int returnQty, int salesReturnDetailId = 0)
         {
             List<SqlParameter> aSqlParameterList = new List<SqlParameter>();

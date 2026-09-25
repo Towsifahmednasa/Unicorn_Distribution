@@ -68,7 +68,7 @@ namespace Library.DAL.SInventory_DAL
         /// <returns></returns>
         public DataTable LoadUnitPriceView()
         {
-            string query = @"SELECT (UnitPrice+VATAmountPerUnit)TPVat ,* from tblUnitPrice 
+            string query = @"SELECT (UnitPrice+VATAmountPerUnit)TPVat ,(UnitPrice+VATAmountPerUnit)TPVat ,tblProduct.ProductCode,tblProduct.Description ProductName,UnitPrice,VATAmountPerUnit,MRPPrice,UnitPriceId from tblUnitPrice 
                 LEFT JOIN dbo.tblProduct ON dbo.tblUnitPrice.ProductId = dbo.tblProduct.ProductId
                 LEFT JOIN dbo.tblProductSQ ON dbo.tblProduct.ProductBrandId = dbo.tblProductSQ.ProductBrandId
                 LEFT JOIN dbo.tblPackSize ON dbo.tblProduct.PackSizeId=dbo.tblPackSize.PackSizeId

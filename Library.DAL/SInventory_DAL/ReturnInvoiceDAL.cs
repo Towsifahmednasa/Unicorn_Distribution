@@ -369,6 +369,30 @@ namespace Library.DAL.SInventory_DAL
             return Execute("EXEC dbo.sp_SalesReturnPosting @ReturnInvoiceId", Parameter("@ReturnInvoiceId", returnInvoiceId));
         }
 
+        public bool IsSalesReturnPosted(int returnInvoiceId)
+        {
+            // sp_SalesReturnPosting runs under SET NOCOUNT ON, so ExecuteNonQuery reports -1 and
+            // PostSalesReturn's bool cannot signal success. This mirrors the SP's own guards:
+            // IsPosting must be 1, and when the return amount (@ReturnNetAmount logic in the SP)
+            // is positive the AR-reversal voucher (TableID 2018) must exist in the accounts DB.
+            const string query = @"
+DECLARE @Amt DECIMAL(18,4) =
+    (SELECT ISNULL(TpGrandTotal, ISNULL(TpTotal, 0)) FROM dbo.tblReturnInvoice WHERE ReturnInvoiceId = @ReturnInvoiceId);
+IF (@Amt IS NULL OR @Amt <= 0)
+    SET @Amt = ISNULL((SELECT SUM(ISNULL(NetAmount, TotalPrice)) FROM dbo.tblReturnInvoiceDetail WHERE ReturnInvoiceId = @ReturnInvoiceId), 0);
+SELECT CASE WHEN RI.IsPosting = 1
+             AND (@Amt <= 0
+                  OR EXISTS (SELECT 1 FROM CSTL_ACCDB_Unicorn.dbo.tblDebitCreditVoucherMaster
+                             WHERE TableID = 2018 AND CommonPK_ID = RI.ReturnInvoiceId
+                               AND (IsInventoryValuation = 0 OR IsInventoryValuation IS NULL)))
+       THEN 1 ELSE 0 END AS IsPosted
+FROM dbo.tblReturnInvoice RI
+WHERE RI.ReturnInvoiceId = @ReturnInvoiceId";
+
+            DataTable dt = GetDataTable(query, Parameter("@ReturnInvoiceId", returnInvoiceId));
+            return dt.Rows.Count > 0 && dt.Rows[0]["IsPosted"].ToString() == "1";
+        }
+
         public bool DeleteData(string  id)
         {
             const string deleteQuery = @"DELETE FROM dbo.tblReturnInvoice WHERE ReturnInvoiceId = @ReturnInvoiceId;

@@ -348,6 +348,21 @@
                 $('.modal-backdrop').remove();
             });
         });
+
+        // Double-click protection for the payment submit button: once the user confirms,
+        // the button is locked until the UpdatePanel re-renders it (success or failure).
+        // Server-side gate remains the primary duplicate protection.
+        function paySubmitOnce(btn) {
+            if (btn.dataset.busy) {
+                return false;
+            }
+            if (btn.dataset.confirmed) {
+                btn.dataset.busy = "1";
+                btn.style.pointerEvents = 'none';
+                btn.style.opacity = '0.6';
+            }
+            return sweetAlertConfirm_Submit(btn);
+        }
     </script>
 </asp:Content>
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="Server">
@@ -899,7 +914,7 @@
 
                                                                 <asp:TemplateField HeaderText="Pay Amount">
                                                                     <ItemTemplate>
-                                                                        <asp:TextBox ID="payAmountTextBox" Width="120px" runat="server" Text='<%#Eval("Due")%>' AutoPostBack="True"
+                                                                        <asp:TextBox ID="payAmountTextBox" Width="120px" runat="server" Text='<%#Eval("Due")%>' AutoPostBack="True" ReadOnly="False"
                                                                             CssClass="form-control form-control-sm" OnTextChanged="payAmountTextBox_TextChanged"></asp:TextBox>
                                                                         <asp:FilteredTextBoxExtender ID="FilteredTextBoxExtenderunitValue" runat="server"
                                                                             Enabled="True" TargetControlID="payAmountTextBox" FilterType="Custom" ValidChars="0123456789.">
@@ -987,7 +1002,7 @@
                                                             <label for="exampleInputUsername2" class="col-sm-3 col-form-label"></label>
                                                             <div class="col-sm-8">
 
-                                                                <asp:LinkButton OnClick="saveButton_Click" runat="server" ID="masterButton" OnClientClick="return sweetAlertConfirm_Submit(this);" class="btnMyyNew btnMyyNew-6">  <i class="fa fa-check"></i> ALL Submit</asp:LinkButton>
+                                                                <asp:LinkButton OnClick="saveButton_Click" runat="server" ID="masterButton" OnClientClick="return paySubmitOnce(this);" class="btnMyyNew btnMyyNew-6">  <i class="fa fa-check"></i> ALL Submit</asp:LinkButton>
 
 
                                                             </div>

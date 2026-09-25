@@ -74,6 +74,57 @@ namespace Library.DAL.SInventory_DAL
             //return aCommonInternalDal.UpdateAction("sp_CustomerPaymentPosting", aSqlParameterList);
         }
 
+        public bool IsPaymentAlreadyProcessed(int invoiceId, decimal paymentAmount)
+        {
+            // Race-safe duplicate gate for customer payment. UPDLOCK on the invoice row is
+            // held until the ambient transaction ends, so a concurrent save of the same
+            // invoice blocks here and then sees the first transaction's committed detail row.
+            // Business key mirrors sp_Check_Duplicate_InvoiceFinalPayment:
+            // InvoiceId + today's date + PaymentAmount.
+            string query = @"SELECT CASE WHEN EXISTS (
+                                 SELECT 1 FROM dbo.tblCustPayDetail
+                                 WHERE InvoiceId = INV.InvoiceId
+                                   AND CONVERT(DATE, custPaymentDate) = CONVERT(DATE, GETDATE())
+                                   AND ISNULL(PaymentAmount, 0) = ISNULL(@PaymentAmount, 0)
+                             ) THEN 1 ELSE 0 END AS AlreadyPaid
+                             FROM dbo.tblInvoice AS INV WITH (UPDLOCK, ROWLOCK)
+                             WHERE INV.InvoiceId = @InvoiceId";
+            DataTable dt = aCommonInternalDal.DataContainerDataTable(query, new List<SqlParameter>
+            {
+                new SqlParameter("@PaymentAmount", paymentAmount),
+                new SqlParameter("@InvoiceId", invoiceId)
+            }, "SSIDB");
+            return dt.Rows.Count > 0 && dt.Rows[0][0].ToString() == "1";
+        }
+
+        public bool UpdateInvoiceFinalPaymentTx(int invoiceId, decimal paymentAmount, string ptStatus, string paymentBy)
+        {
+            // Same SP as UpdateInvoiceFinalPayment, but routed through the EntLib helper so it
+            // can enlist in an ambient TransactionScope (DataAccessManager.UpdateData starts its
+            // own SqlTransaction, which is not allowed on a scope-enlisted connection).
+            // Returns false when the SP's duplicate guard skipped the update (0 rows) or on error.
+            List<SqlParameter> aSqlParameters = new List<SqlParameter>();
+            aSqlParameters.Add(new SqlParameter("@InvoiceId", invoiceId));
+            aSqlParameters.Add(new SqlParameter("@PaymentAmount", paymentAmount));
+            aSqlParameters.Add(new SqlParameter("@ptStatus", ptStatus));
+            aSqlParameters.Add(new SqlParameter("@FinalPaymentBy", paymentBy));
+            return aCommonInternalDal.UpdateAction("sp_Update_InvoiceFinalPayment", aSqlParameters);
+        }
+
+        public bool IsPaymentJournalPosted(int custPayId)
+        {
+            // sp_Sales_CustomerPaymentPosting runs with SET NOCOUNT ON, so UpdateAction's
+            // rows-affected boolean is always false there; the voucher row itself is the
+            // reliable success signal (TableID 2017 = tblCustomerPay, CommonPK_ID = CustPayId).
+            string query = @"SELECT COUNT(*) AS Cnt FROM CSTL_ACCDB_Unicorn..tblDebitCreditVoucherMaster
+                             WHERE TableID = 2017 AND CommonPK_ID = @CustPayId";
+            DataTable dt = aCommonInternalDal.DataContainerDataTable(query, new List<SqlParameter>
+            {
+                new SqlParameter("@CustPayId", custPayId)
+            }, "SSIDB");
+            return dt.Rows.Count > 0 && Convert.ToInt32(dt.Rows[0][0]) > 0;
+        }
+
 
         public bool SaveCustPayment(CustPayment aCustPayment)
         {

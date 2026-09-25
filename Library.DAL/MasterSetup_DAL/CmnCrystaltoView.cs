@@ -581,7 +581,7 @@ SELECT
     ISNULL(I.FinalPaymentNo, ISNULL(I.PaymentInvoiceNo, '')) AS FinalPaymentNo,
     FORMAT(ISNULL(CPY.PaymentDate, custDtl.custPaymentDate), 'dd-MMM-yy') AS custPaymentDates,
     ISNULL(B.BankName, ISNULL(CA.AccountName, 'General Cash')) AS CashBankAccount,
-    ISNULL(I.PaymentTpGrandTotal, I.TpGrandTotal) AS InvoiceAmount,
+    ISNULL(I.TpGrandTotal, I.TpGrandTotal) AS InvoiceAmount,
     ISNULL(custDtl.PaymentAmount, 0) AS PaidAmount,
     ISNULL(custDtl.Discount, 0) AS Discount,
     (ISNULL(custDtl.AIT, 0) + ISNULL(custDtl.VATAmount, 0)) AS AitVatAmount,

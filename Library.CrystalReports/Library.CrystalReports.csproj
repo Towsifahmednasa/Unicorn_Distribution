@@ -66,7 +66,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SInventory_DS\AreaWiseMonthlyInventoryReport.cs">
       <DependentUpon>AreaWiseMonthlyInventoryReport.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\AreaWiseMonthlyInventoryReport.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -75,7 +74,6 @@
     </Compile>
     <Compile Include="SInventory_DS\CWMonthlyInventoryReport.cs">
       <DependentUpon>CWMonthlyInventoryReport.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\CWMonthlyInventoryReport.designer.cs">
       <DependentUpon>CWMonthlyInventoryReport.xsd</DependentUpon>
@@ -89,14 +87,12 @@
     </Compile>
     <Compile Include="SInventory_DS\DcStockMonitoringDataSet.cs">
       <DependentUpon>DcStockMonitoringDataSet.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\DcStockMonitoringDataSet.designer.cs">
       <DependentUpon>DcStockMonitoringDataSet.cs</DependentUpon>
     </Compile>
     <Compile Include="SInventory_DS\DeleteOrderDataTable.cs">
       <DependentUpon>DeleteOrderDataTable.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\DeleteOrderDataTable.designer.cs">
       <DependentUpon>DeleteOrderDataTable.cs</DependentUpon>
@@ -118,7 +114,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsComUnitSales.cs">
       <DependentUpon>dsComUnitSales.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsComUnitSales.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -132,7 +127,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsCustomerLedger.cs">
       <DependentUpon>dsCustomerLedger.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsCustomerLedger.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -141,7 +135,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsCustomerMaster.cs">
       <DependentUpon>dsCustomerMaster.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsCustomerMaster.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -155,7 +148,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsCustomerSales.cs">
       <DependentUpon>dsCustomerSales.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsCustomerSales.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -164,7 +156,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsDCPicking.cs">
       <DependentUpon>dsDCPicking.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsDCPicking.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -178,7 +169,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsDcStockOutReport.cs">
       <DependentUpon>dsDcStockOutReport.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsDcStockOutReport.designer.cs">
       <DependentUpon>dsDcStockOutReport.cs</DependentUpon>
@@ -190,7 +180,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsDeliveryReturn.cs">
       <DependentUpon>dsDeliveryReturn.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsDeliveryReturn.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -199,7 +188,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsDistrictSales.cs">
       <DependentUpon>dsDistrictSales.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsDistrictSales.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -213,7 +201,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsInvoiceForCustomer.cs">
       <DependentUpon>dsInvoiceForCustomer.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsInvoiceForCustomer.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -242,7 +229,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsMigo.cs">
       <DependentUpon>dsMigo.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsMigo.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -256,7 +242,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsMonthlyExpense.cs">
       <DependentUpon>dsMonthlyExpense.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsMonthlyExpense.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -291,7 +276,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsSalesRejection.cs">
       <DependentUpon>dsSalesRejection.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsSalesRejection.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -315,7 +299,6 @@
     </Compile>
     <Compile Include="SInventory_DS\dsTourPlanMonthy.cs">
       <DependentUpon>dsTourPlanMonthy.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\dsTourPlanMonthy.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -329,7 +312,6 @@
     </Compile>
     <Compile Include="SInventory_DS\FixedCustomerSalesReportDataSet.cs">
       <DependentUpon>FixedCustomerSalesReportDataSet.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\FixedCustomerSalesReportDataSet.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -343,7 +325,6 @@
     </Compile>
     <Compile Include="SInventory_DS\ProductWiseNationalSalesReportDataSet.cs">
       <DependentUpon>ProductWiseNationalSalesReportDataSet.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\ProductWiseNationalSalesReportDataSet.designer.cs">
       <DependentUpon>ProductWiseNationalSalesReportDataSet.cs</DependentUpon>
@@ -356,7 +337,6 @@
     </Compile>
     <Compile Include="SInventory_DS\WHStockInReportData.cs">
       <DependentUpon>WHStockInReportData.xsd</DependentUpon>
-      <SubType>Component</SubType>
     </Compile>
     <Compile Include="SInventory_DS\WHStockInReportData.designer.cs">
       <DependentUpon>WHStockInReportData.cs</DependentUpon>

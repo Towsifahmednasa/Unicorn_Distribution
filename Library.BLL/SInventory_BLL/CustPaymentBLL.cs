@@ -29,6 +29,37 @@ namespace Library.BLL.SInventory_BLL
         {
             return aCustPaymentDal.PaymentJournalPosting(custPayId,invoiceId);
         }
+
+        public bool IsPaymentAlreadyProcessed(int invoiceId, decimal paymentAmount)
+        {
+            return aCustPaymentDal.IsPaymentAlreadyProcessed(invoiceId, paymentAmount);
+        }
+
+        public bool UpdateInvoiceFinalPaymentTx(int invoiceId, decimal paymentAmount, string ptStatus, string paymentBy)
+        {
+            return aCustPaymentDal.UpdateInvoiceFinalPaymentTx(invoiceId, paymentAmount, ptStatus, paymentBy);
+        }
+
+        public bool IsPaymentJournalPosted(int custPayId)
+        {
+            return aCustPaymentDal.IsPaymentJournalPosted(custPayId);
+        }
+
+        public bool SaveCustPaymentTx(CustPayment aCustPayment, CustPaymentDetail aCustPaymentDetail)
+        {
+            // Transaction-aware save: one header + its own detail, with the DAL row-count
+            // results actually checked (SaveCustPayment/SaveCustDetail return false when the
+            // insert was skipped, e.g. by the detail duplicate guard).
+            ClsPrimaryKeyFind aClsPrimaryKeyFind = new ClsPrimaryKeyFind();
+            aCustPayment.CustPayId = aClsPrimaryKeyFind.PrimaryKeyMax("CustPayId", "tblCustomerPay");
+            if (!aCustPaymentDal.SaveCustPayment(aCustPayment))
+            {
+                return false;
+            }
+            aCustPaymentDetail.CustPayId = aCustPayment.CustPayId;
+            aCustPaymentDetail.CustPayDetailId = aClsPrimaryKeyFind.PrimaryKeyMax("CustPayDetailId", "tblCustPayDetail");
+            return aCustPaymentDal.SaveCustDetail(aCustPaymentDetail);
+        }
         public bool SaveCustPayment(CustPayment aCustPayment,List<CustPaymentDetail> aPaymentDetailList )
         {
             try

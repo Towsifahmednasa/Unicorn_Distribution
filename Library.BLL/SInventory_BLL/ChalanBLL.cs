@@ -24,14 +24,27 @@ namespace Library.BLL.SInventory_BLL
         }
         public int DCStockIn2(DCStockNew aDcStockNew)
         {
-            string msg = "Data Save Successfully!!";
             int DCStoreId = 0;
 
             DCStoreId = aDcStockNew.DCStoreId = aClsPrimaryKeyFind.PrimaryKeyMax("DCStoreId", "tblDCStore", "SSIDB");
-            aChalanDal.DCStockInDALMain(aDcStockNew);
-            aChalanDal.ChalanUpdate(aDcStockNew.ChalanId.ToString());
+            if (!aChalanDal.DCStockInDALMain(aDcStockNew))
+                throw new Exception("DC stock receive insert failed for product " + aDcStockNew.ProductCode + " batch " + aDcStockNew.BatchNo);
+            if (!aChalanDal.ChalanUpdate(aDcStockNew.ChalanId.ToString()))
+                throw new Exception("Chalan received-status update failed for chalan " + aDcStockNew.ChalanId);
 
             return DCStoreId;
+        }
+        public bool IsChalanAlreadyReceived(string chalanId)
+        {
+            return aChalanDal.IsChalanAlreadyReceived(chalanId);
+        }
+        // Same as SaveDCStoreFreeze2 but surfaces DAL failure so a transactional caller
+        // can roll back; SaveDCStoreFreeze2 is kept as-is for its other caller.
+        public void SaveDCStoreFreeze2Checked(DCStoreFreezeDAO aDcStockNew)
+        {
+            aDcStockNew.DCStoreFreezeId = new ClsPrimaryKeyFind().PrimaryKeyMax("DCStoreFreezeId", "tblDCStoreFreeze");
+            if (!aChalanDal.SaveDCStoreFreeze2(aDcStockNew))
+                throw new Exception("DC store freeze save failed for product " + aDcStockNew.ProductCode + " batch " + aDcStockNew.BatchNo);
         }
         public int DCStockInSub(DCStockNew aDcStockNew)
         {

@@ -211,6 +211,10 @@ namespace Library.BLL.SInventory_BLL
       {
           return aRequisitionDal.UpdateIssueInformationOnRequisitionDAL(aRequesition);
       }
+      public bool IsPickingAlreadyDone(string reqId)
+      {
+          return aRequisitionDal.IsPickingAlreadyDone(reqId);
+      }
       public bool UpdatePickingInformationOnRequisition(Requesition aRequesition)
       {
 

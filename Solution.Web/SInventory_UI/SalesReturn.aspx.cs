@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -28,6 +29,7 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
             LoadAllProduct();
             orderDateTextBox.Text = DateTime.Now.ToString("dd-MMM-yyyy");
             orderNoTextBox.Text = "Return From Market";
+            IssueSaveToken();
         }
     }
 
@@ -268,8 +270,8 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
 
     private void ShowMessageBox(string message)
     {
-        message = message.Replace("'", "\'");
-        string sScript = String.Format("alert('{0}');", message);
+        message = message.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", " ");
+        string sScript = String.Format("showpop6('{0}', 'Error');", message);
         ScriptManager.RegisterStartupScript(this, this.GetType(), "alert", sScript, true);
     }
 
@@ -372,29 +374,72 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
 
     }
 
+    // One-time save token: each rendered form carries a token that is consumed only after a
+    // successful commit. A double-click / browser retry re-posts the same token, finds it
+    // already consumed and is rejected without touching the database. ASP.NET's per-session
+    // request serialization makes the check-then-consume race-free for same-session requests.
+    private void IssueSaveToken()
+    {
+        string token = Guid.NewGuid().ToString("N");
+        Session["SRTOKEN_" + token] = true;
+        ViewState["SaveToken"] = token;
+    }
+
     protected void submitButton_Click(object sender, EventArgs e)
     {
         if (Validation() == true)
         {
+            string saveToken = ViewState["SaveToken"] as string;
+            if (string.IsNullOrEmpty(saveToken) || Session["SRTOKEN_" + saveToken] == null)
+            {
+                showMessageBox("This sales return has already been submitted. Please start a new return.");
+                return;
+            }
+
             try
             {
-                int invId = SaveInvoiceNew();
-                SaveReturnAmount(invId);
-                SaveInvoiceDetailNew(invId);
+                string generatedInvNo;
+                var txOpt = new TransactionOptions
+                {
+                    IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+                    Timeout = TimeSpan.FromMinutes(5)
+                };
+                using (var scope = new TransactionScope(TransactionScopeOption.Required, txOpt))
+                {
+                    int invId = SaveInvoiceNew();
+                    if (invId <= 0)
+                        throw new Exception("Return invoice header save failed");
 
-                // Auto post AR Reversal and COGS/Inventory Reversal vouchers
-                aInvoiceBll.PostSalesReturn(invId);
+                    if (!SaveReturnAmount(invId))
+                        throw new Exception("Return amount save failed");
 
-                string generatedInvNo = invTextBox.Text.Trim();
+                    if (!SaveInvoiceDetailNew(invId))
+                        throw new Exception("Return invoice detail save failed");
+
+                    // Auto post AR Reversal and COGS/Inventory Reversal vouchers.
+                    // sp_SalesReturnPosting runs with SET NOCOUNT ON, so the DAL's rows-affected
+                    // bool is meaningless; verify the posting outcome directly instead.
+                    aInvoiceBll.PostSalesReturn(invId);
+                    if (!aInvoiceBll.IsSalesReturnPosted(invId))
+                        throw new Exception("Journal posting failed");
+
+                    scope.Complete();
+                }
+
+                // Commit succeeded: consume this form's token and arm a fresh one.
+                Session.Remove("SRTOKEN_" + saveToken);
+                IssueSaveToken();
+
+                generatedInvNo = invTextBox.Text.Trim();
                 Clear(keepInvoiceNo: true);
                 invTextBox.Text = generatedInvNo;
 
-                showMessageBox("Return Invoice Generated and Accounts Vouchers Posted Successfully! Invoice No: " + generatedInvNo);
+                showSuccessMessageBox("Return Invoice Generated and Accounts Vouchers Posted Successfully! Invoice No: " + generatedInvNo);
             }
             catch (Exception exception)
             {
-                // throw exception;
-                showMessageBox("Some Networks Error blocked Your Transaction Please Contract Administrator!!");
+                // Transaction rolled back; token stays valid so the user can retry.
+                showMessageBox("Sales return failed: " + exception.Message);
             }
         }
     }
@@ -514,17 +559,23 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
 
                 aInvoiceDetailsList.Add(aInvoiceDetail);
                 int detailid = aInvoiceBll.SaveReturnInvoice(aInvoiceDetail);
+                if (detailid <= 0)
+                    throw new Exception("Detail save failed for product " + prodCode);
 
                 // Automatically receive return stock into tblDCStore for the active depot with manual COGS and detail ID
                 decimal retQty = aInvoiceDetail.TotalQuantity > 0 ? aInvoiceDetail.TotalQuantity : aInvoiceDetail.Quantity;
-                if (retQty > 0 && comUnitId > 0)
+                if (retQty > 0)
                 {
-                    aInvoiceBll.InsertDCStoreStockSalesReturn(prodCode, aInvoiceDetail.ProductName, batchVal, expDateVal, mfgDateVal, retQty, comUnitId, retInvNo, cogs, detailid);
+                    if (comUnitId <= 0)
+                        throw new Exception("No Distribution Center resolved for return stock of product " + prodCode);
+                    if (!aInvoiceBll.InsertDCStoreStockSalesReturn(prodCode, aInvoiceDetail.ProductName, batchVal, expDateVal, mfgDateVal, retQty, comUnitId, retInvNo, cogs, detailid))
+                        throw new Exception("Return stock receive failed for product " + prodCode);
                 }
             }
         }
 
-        return true;
+        // No detail row saved means an empty/invalid grid; never leave a header-only return behind.
+        return aInvoiceDetailsList.Count > 0;
     }
 
 
@@ -682,16 +733,9 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
 
         DataTable dtInvo = new DataTable();
         dtInvo = aInvoiceBll.getInvo(invoiceId.ToString());
-        try
-        {
-            invTextBox.Text = dtInvo.Rows[0]["ReturnInvoiceNo"].ToString();
-
-        }
-        catch
-        {
-
-        }
-
+        if (dtInvo.Rows.Count == 0)
+            throw new Exception("Generated return invoice not found (Id " + invoiceId + ")");
+        invTextBox.Text = dtInvo.Rows[0]["ReturnInvoiceNo"].ToString();
 
         return invoiceId;
     }
@@ -2363,9 +2407,15 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
     }
     protected void showMessageBox(string message)
     {
-        string sScript;
-        message = message.Replace("'", "\'");
-        sScript = String.Format("alert('{0}');", message);
+        message = message.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", " ");
+        string sScript = String.Format("showpop6('{0}', 'Error');", message);
+        ScriptManager.RegisterStartupScript(this, this.GetType(), "alert", sScript, true);
+    }
+
+    protected void showSuccessMessageBox(string message)
+    {
+        message = message.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", " ");
+        string sScript = String.Format("showpop5('{0}', 'Success');", message);
         ScriptManager.RegisterStartupScript(this, this.GetType(), "alert", sScript, true);
     }
 
@@ -2461,7 +2511,7 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
                     ((TextBox)gridLineItemGridView.Rows[rowindex].Cells[13].FindControl("tQtyTextBox")).Text.Trim()));
 
     }
-    public void SaveReturnAmount(int invid)
+    public bool SaveReturnAmount(int invid)
     {
         ReturnAmountDAO amountDao = new ReturnAmountDAO()
         {
@@ -2470,8 +2520,7 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
             //  ReturnInvoiceId = invid,
             InvoiceId = Convert.ToInt32(invid)
         };
-        bool status = aInvoiceBll.SaveDataForReturnAmount(amountDao);
-
+        return aInvoiceBll.SaveDataForReturnAmount(amountDao);
     }
     protected void saveButton_Click(object sender, EventArgs e)
     {

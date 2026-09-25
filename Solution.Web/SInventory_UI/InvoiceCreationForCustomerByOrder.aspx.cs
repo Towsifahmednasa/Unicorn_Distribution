@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -2560,6 +2561,10 @@ public partial class SInventory_UI_InvoiceCreationForCustomer : System.Web.UI.Pa
                 {
                     try
                     {
+                        // All DB writes below commit together; any exception skips Complete() => full rollback
+                        var txOpt = new TransactionOptions { IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted, Timeout = TimeSpan.FromMinutes(5) };
+                        using (var scope = new TransactionScope(TransactionScopeOption.Required, txOpt))
+                        {
                         int invId = SaveInvoice();
                         if (invId > 0)
                         {
@@ -2571,7 +2576,7 @@ public partial class SInventory_UI_InvoiceCreationForCustomer : System.Web.UI.Pa
                             if (dtl == true)
                             {
                                 aInvoiceBll.UpdateInvoiceHeaderTotals(invoicePK);
-                                SaveReturnAmount(invoicePK);
+                            //    SaveReturnAmount(invoicePK);
                                 aOrderInfoBll.UpdateInvoiceStatus(orderIdHiddenField.Value);
 
                                     //if (ValiMethodAfterSave())
@@ -2590,11 +2595,10 @@ public partial class SInventory_UI_InvoiceCreationForCustomer : System.Web.UI.Pa
                                 }
                             else
                             {
-                                //aInvoiceBll.DeleteInvoice(orderIdHiddenField.Value);
-                                Clear();
-                                    ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "faildalert('" + "Please generate Invoice again!" + "','Faild');", true);
-
+                                throw new Exception("Please generate Invoice again!");
                                 }
+                        }
+                        scope.Complete();
                         }
                             ProformaOrInvoiceReturnBLL aIn = new ProformaOrInvoiceReturnBLL();
                             DataTable dtInvo = aOrderInfoBll.GetInvoNOGetByInvoID(orderIdHiddenField.Value.ToString());
@@ -2621,7 +2625,6 @@ public partial class SInventory_UI_InvoiceCreationForCustomer : System.Web.UI.Pa
                         }
                     catch (Exception ex)
                     {
-                        aInvoiceBll.DeleteInvoice(orderIdHiddenField.Value);
                         string errorMsg = ex.Message.Replace("'", " ");
                         ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "faildalert('Invoice generation failed: " + errorMsg + "','Faild');", true);
                     }

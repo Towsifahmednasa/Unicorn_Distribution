@@ -9,6 +9,7 @@ using System.Web.UI.WebControls;
 using Library.BLL.SInventory_BLL;
 using Library.DAO.SInventory_Entities;
 using System.Drawing;
+using System.Transactions;
 
 public partial class SInventory_UI_DeliverySalesReturn : System.Web.UI.Page
 {
@@ -30,7 +31,19 @@ public partial class SInventory_UI_DeliverySalesReturn : System.Web.UI.Page
         if (!IsPostBack)
         {
             aInvoiceBll.PaymentTypeLoadBLL(payTypeDDL);
+            IssueSaveToken();
         }
+    }
+
+    // One-time save token: issued per rendered form, consumed only after a successful commit.
+    // A double-click / browser retry re-posts the same token, finds it already consumed and is
+    // rejected without touching the database. ASP.NET's per-session request serialization makes
+    // the check-then-consume race-free for same-session requests.
+    private void IssueSaveToken()
+    {
+        string token = Guid.NewGuid().ToString("N");
+        Session["DSRTOKEN_" + token] = true;
+        ViewState["SaveToken"] = token;
     }
 
     private void GetCustInfo(string custCode)
@@ -209,9 +222,18 @@ public partial class SInventory_UI_DeliverySalesReturn : System.Web.UI.Page
             decimal netReturn = totalamnt - deductionCharge;
             if (netReturn < 0) netReturn = 0;
 
+            string saveToken = ViewState["SaveToken"] as string;
+            if (string.IsNullOrEmpty(saveToken) || Session["DSRTOKEN_" + saveToken] == null)
+            {
+                ShowMessageBox("This delivery sales return has already been submitted. Please search the invoice again.");
+                return;
+            }
+
+            int invoiceId = Convert.ToInt32(invoiceHiddenField.Value);
+
             CustomerReturnMasterDAO aCustomerReturnMasterDao = new CustomerReturnMasterDAO()
             {
-               InvoiceId = Convert.ToInt32(invoiceHiddenField.Value),
+               InvoiceId = invoiceId,
                TotalAmount = totalamnt,
                TotalQty = totalqty,
                DeductionCharge = deductionCharge,
@@ -222,36 +244,87 @@ public partial class SInventory_UI_DeliverySalesReturn : System.Web.UI.Page
             };
 
             CustomerReturnBLL aCustomerReturnBll = new CustomerReturnBLL();
-            int id = 0;
-            if (totalqty > 0)
+            try
             {
-                id = aCustomerReturnBll.SaveCustomerReturn(aCustomerReturnMasterDao);   
-            }
-             
-            if (id > 0)
-            {
-                for (int i = 0; i < loadGridView.Rows.Count; i++)
+                var txOpt = new TransactionOptions
                 {
-                    CustomerReturnDetailDAO aCustomerReturnDetailDao = new CustomerReturnDetailDAO()
+                    IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+                    Timeout = TimeSpan.FromMinutes(5)
+                };
+                using (var scope = new TransactionScope(TransactionScopeOption.Required, txOpt))
+                {
+                    // Serializes concurrent returns against the same invoice (U-lock held to tx end).
+                    if (!aCustomerReturnBll.LockInvoiceForReturn(invoiceId))
                     {
-                        CustReturnId = id,
-                        InvoiceDetailId = Convert.ToInt32(loadGridView.DataKeys[i][1].ToString()),
-                        ReturnAmount = string.IsNullOrEmpty(((TextBox)loadGridView.Rows[i].FindControl("retamountTextBox")).Text) ? 0 :
-                                        Convert.ToDecimal(((TextBox)loadGridView.Rows[i].FindControl("retamountTextBox")).Text),
-                        ReturnQty = string.IsNullOrEmpty(((TextBox)loadGridView.Rows[i].FindControl("retQtyTextBox")).Text) ? 0 :
-                                       Convert.ToInt32(((TextBox)loadGridView.Rows[i].FindControl("retQtyTextBox")).Text)
-                    };
-                    if (aCustomerReturnDetailDao.ReturnQty > 0)
-                    {
-                        int detailId = aCustomerReturnBll.SaveCustomerReturnDetail(aCustomerReturnDetailDao);
-                        aCustomerReturnBll.InsertDCStoreStockReturn(aCustomerReturnDetailDao.InvoiceDetailId, aCustomerReturnDetailDao.ReturnQty, detailId);
+                        throw new Exception("Invoice not found.");
                     }
+
+                    int id = aCustomerReturnBll.SaveCustomerReturn(aCustomerReturnMasterDao);
+                    if (id <= 0)
+                    {
+                        throw new Exception("Return header save failed.");
+                    }
+
+                    int savedDetails = 0;
+                    for (int i = 0; i < loadGridView.Rows.Count; i++)
+                    {
+                        CustomerReturnDetailDAO aCustomerReturnDetailDao = new CustomerReturnDetailDAO()
+                        {
+                            CustReturnId = id,
+                            InvoiceDetailId = Convert.ToInt32(loadGridView.DataKeys[i][1].ToString()),
+                            ReturnAmount = string.IsNullOrEmpty(((TextBox)loadGridView.Rows[i].FindControl("retamountTextBox")).Text) ? 0 :
+                                            Convert.ToDecimal(((TextBox)loadGridView.Rows[i].FindControl("retamountTextBox")).Text),
+                            ReturnQty = string.IsNullOrEmpty(((TextBox)loadGridView.Rows[i].FindControl("retQtyTextBox")).Text) ? 0 :
+                                           Convert.ToInt32(((TextBox)loadGridView.Rows[i].FindControl("retQtyTextBox")).Text)
+                        };
+                        if (aCustomerReturnDetailDao.ReturnQty > 0)
+                        {
+                            int detailId = aCustomerReturnBll.SaveCustomerReturnDetail(aCustomerReturnDetailDao);
+                            if (detailId <= 0)
+                            {
+                                throw new Exception("Return detail save failed.");
+                            }
+                            if (!aCustomerReturnBll.InsertDCStoreStockReturn(aCustomerReturnDetailDao.InvoiceDetailId, aCustomerReturnDetailDao.ReturnQty, detailId))
+                            {
+                                throw new Exception("Stock return to DC store failed (no matching receive record).");
+                            }
+                            savedDetails++;
+                        }
+                    }
+                    if (savedDetails == 0)
+                    {
+                        throw new Exception("No return detail was saved.");
+                    }
+
+                    // Re-check inside the transaction: a concurrent return committed while this one
+                    // was waiting on the invoice lock could make the grid's Available Qty stale.
+                    if (aCustomerReturnBll.HasOverReturn(invoiceId))
+                    {
+                        throw new Exception("Return quantity exceeds delivered quantity (the invoice was returned by another request). Please search the invoice again.");
+                    }
+
+                    // Journal posting. The bool is unreliable (SP uses SET NOCOUNT ON), so verify
+                    // via the SP's own completion marker instead.
+                    aCustomerReturnBll.PostDeliverySalesReturn(id);
+                    if (!aCustomerReturnBll.IsDeliverySalesReturnPosted(id))
+                    {
+                        throw new Exception("Journal posting failed.");
+                    }
+
+                    scope.Complete();
                 }
-                
-                aCustomerReturnBll.PostDeliverySalesReturn(id);
+
+                // Commit succeeded: consume this form's token and arm a fresh one.
+                Session.Remove("DSRTOKEN_" + saveToken);
+                IssueSaveToken();
 
                 Clear();
                 ShowMessageBox("Data Saved and Posted Successfully !!!");
+            }
+            catch (Exception ex)
+            {
+                // Transaction rolled back; token stays valid so the user can retry.
+                ShowMessageBox("Delivery sales return failed: " + ex.Message);
             }
         }
     }
@@ -297,7 +370,7 @@ public partial class SInventory_UI_DeliverySalesReturn : System.Web.UI.Page
             CustomerReturnBLL aCustomerReturnBll = new CustomerReturnBLL();
             DataTable dt = aCustomerReturnBll.LoadInvoiceNew(txt);
             WriteLog("Search: LoadInvoiceNew returned rows: " + dt.Rows.Count);
-            if (dt.Rows.Count > 0)
+           // if (dt.Rows.Count > 0)
             {
                 uiel.Visible = true;
                 payamntTextBox.Text = dt.Rows[0]["Amnt"].ToString();
@@ -309,13 +382,13 @@ public partial class SInventory_UI_DeliverySalesReturn : System.Web.UI.Page
                 txtNetReturnAmount.Text = "0.00";
                 WriteLog("Search: Databound successfully.");
             }
-            else
-            {
-                WriteLog("Search: No rows returned from LoadInvoiceNew.");
-                loadGridView.DataSource = null;
-                loadGridView.DataBind();
-                ShowMessageBox("Already Returned or Payment Exist or Invalid Delivery Invoice No. !!!");
-            }
+            //else
+            //{
+            //    WriteLog("Search: No rows returned from LoadInvoiceNew.");
+            //    loadGridView.DataSource = null;
+            //    loadGridView.DataBind();
+            //    ShowMessageBox("Already Returned or Payment Exist or Invalid Delivery Invoice No. !!!");
+            //}
         }
         catch (Exception ex)
         {

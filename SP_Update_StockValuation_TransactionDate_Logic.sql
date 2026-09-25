@@ -108,12 +108,16 @@ BEGIN
                 END) AS RcvFromWHQty,
 
             -- B2B Receive: Inward Transfer from another DC (Receive Date wise)
-            SUM(CASE 
+            -- Return rows can carry the source IDT chalan no, so exclude anything
+            -- ReturnRcvQty already counts (else it double-counts in B2B Receive).
+            SUM(CASE
                     WHEN (Trans_Type = 'Receive' OR Trans_Type = 'Available')
                          AND (
-                             StockCondition IN ('B2BReceive', 'TransferReceive') 
+                             StockCondition IN ('B2BReceive', 'TransferReceive')
                              OR ChalanNo LIKE 'IDT%'
                          )
+                         AND ISNULL(ReturnFromInvoiceDetailId, 0) = 0
+                         AND ISNULL(StockCondition, '') NOT IN ('DeliveryReturn', 'SalesReturn', 'Return')
                          AND StockQty > 0
                     THEN StockQty ELSE 0 
                 END) AS B2BRcvQty,

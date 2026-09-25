@@ -5,6 +5,7 @@ using Library.DAO.SInventory_Entities;
 using SalesSolution.Web.DataLayer;
 using System;
 using System.Activities.Expressions;
+using System.Transactions;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
@@ -351,15 +352,22 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
         return true;
     }
     List<string> custPayIdList = new List<string>();
+
+    private class PaymentWorkItem
+    {
+        public CustPayment Header;
+        public CustPaymentDetail Detail;
+        public decimal TotalSettled;
+        public string PtStatus;
+    }
+
     protected void saveButton_Click(object sender, EventArgs e)
     {
         if (Validation())
         {
-            CustomerMaster aCustomerMaster;
-
-            bool save = false;
-
-            List<CustPaymentDetail> aCustPaymentDetails = new List<CustPaymentDetail>();
+            // Pass 1 (outside the transaction): fast duplicate pre-check + build the
+            // header/detail for every checked row. No writes happen here.
+            List<PaymentWorkItem> workItems = new List<PaymentWorkItem>();
 
             for (int i = 0; i < orderGridView.Rows.Count; i++)
             {
@@ -436,7 +444,6 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
 
                     if (aTable.Rows.Count == 0)
                     {
-                        string ptStatus = "";
                         aCustPayment.CreateBy = Session["LoginName"].ToString();
                         aCustPayment.CreateDate = DateTime.Now;
 
@@ -451,17 +458,6 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
                         TextBox discountTextBox = (TextBox)orderGridView.Rows[i].FindControl("discountTextBox");
                         decimal discountAmount = (discountTextBox != null && !string.IsNullOrEmpty(discountTextBox.Text)) ? Convert.ToDecimal(discountTextBox.Text) : 0;
                         decimal totalSettled = payAmount + aitAmount + discountAmount;
-
-                        if ((totalSettled + prevamount) == TotalDelivery)
-                        {
-                            ptStatus = "Full";
-                            save = aCustPaymentBll.UpdateInvoiceFinalPayment(Convert.ToInt32(orderGridView.DataKeys[i][0].ToString()), totalSettled, ptStatus, Session["LoginName"].ToString());
-                        }
-                        else
-                        {
-                            ptStatus = "Partial";
-                            save = aCustPaymentBll.UpdateInvoiceFinalPayment(Convert.ToInt32(orderGridView.DataKeys[i][0].ToString()), totalSettled, ptStatus, Session["LoginName"].ToString());
-                        }
 
                         CustPaymentDetail aCustPaymentDetail = new CustPaymentDetail();
                         aCustPaymentDetail.InvoiceId = Convert.ToInt32(orderGridView.DataKeys[i]["InvoiceId"].ToString());
@@ -500,49 +496,81 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
                         aCustPaymentDetail.BankAccId = bankAccIdVal;
                         aCustPaymentDetail.CashAccId = cashAccIdVal;
 
-                        aCustPaymentDetails.Add(aCustPaymentDetail);
-
-                    }
-                    else
-                    {
-                        save = false;
-                    }
-
-                    if (save)
-                    { 
-                    if (aCustPaymentBll.SaveCustPayment(aCustPayment, aCustPaymentDetails))
-                    {
-
-                            custPayIdList.Add(aCustPayment.CustPayId.ToString());
-
-                            foreach (var aDetail in aCustPaymentDetails)
-                            {
-                                aCustPaymentBll.PaymentJournalPosting(aCustPayment.CustPayId, aDetail.InvoiceId);
-                            }
-
-                        }
-
+                        PaymentWorkItem aWorkItem = new PaymentWorkItem();
+                        aWorkItem.Header = aCustPayment;
+                        aWorkItem.Detail = aCustPaymentDetail;
+                        aWorkItem.TotalSettled = totalSettled;
+                        aWorkItem.PtStatus = ((totalSettled + prevamount) == TotalDelivery) ? "Full" : "Partial";
+                        workItems.Add(aWorkItem);
                     }
                 }
             }
 
-            if (save)
+            if (workItems.Count == 0)
             {
+                ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "faildalert('" + "Already Exist!" + "','Faild');", true);
+                return;
+            }
+
+            // Pass 2: all payment writes (invoice payment update, header, detail, journal)
+            // are atomic — scope.Complete() runs only if every mandatory operation succeeds.
+            try
+            {
+                var txOpt = new TransactionOptions
+                {
+                    IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+                    Timeout = TimeSpan.FromMinutes(5)
+                };
+
+                using (var scope = new TransactionScope(TransactionScopeOption.Required, txOpt))
+                {
+                    foreach (PaymentWorkItem aWorkItem in workItems)
+                    {
+                        // Race-safe duplicate gate (UPDLOCK on the invoice row, held to end of
+                        // transaction): a concurrent save of the same payment blocks here, then
+                        // sees the committed detail row and stops without writing anything.
+                        if (aCustPaymentBll.IsPaymentAlreadyProcessed(aWorkItem.Detail.InvoiceId, aWorkItem.Header.PaymentAmount))
+                        {
+                            ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "faildalert('" + "Already Exist!" + "','Faild');", true);
+                            return; // scope not completed → everything rolls back
+                        }
+
+                        if (!aCustPaymentBll.UpdateInvoiceFinalPaymentTx(aWorkItem.Detail.InvoiceId, aWorkItem.TotalSettled, aWorkItem.PtStatus, Session["LoginName"].ToString()))
+                        {
+                            throw new Exception("Invoice payment update failed");
+                        }
+
+                        if (!aCustPaymentBll.SaveCustPaymentTx(aWorkItem.Header, aWorkItem.Detail))
+                        {
+                            throw new Exception("Payment save failed");
+                        }
+
+                        // sp_Sales_CustomerPaymentPosting runs with SET NOCOUNT ON, so this
+                        // boolean is always false even on success — the voucher-existence check
+                        // below is the real success signal for the journal posting.
+                        aCustPaymentBll.PaymentJournalPosting(aWorkItem.Header.CustPayId, aWorkItem.Detail.InvoiceId);
+
+                        if (aWorkItem.TotalSettled > 0 && !aCustPaymentBll.IsPaymentJournalPosted(aWorkItem.Header.CustPayId))
+                        {
+                            throw new Exception("Payment journal posting failed");
+                        }
+
+                        custPayIdList.Add(aWorkItem.Header.CustPayId.ToString());
+                    }
+
+                    scope.Complete();
+                }
 
                 //MoneyRecitPrint();
                 hfCustPayId.Value = string.Join(",", custPayIdList);
                 //LoadGridView();
                 //ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "ShowSuccesalert('" + "Operation successful!" + "','Success');", true);
                 ScriptManager.RegisterStartupScript(this, GetType(), "ShowModal", "$('#moneyModal').modal('show');", true);
-
-
             }
-            else
+            catch (Exception exception)
             {
-                ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "faildalert('" + "Already Exist!" + "','Faild');", true);
+                showMessageBox("Customer payment failed: " + exception.Message);
             }
-
-
         }
     }
 

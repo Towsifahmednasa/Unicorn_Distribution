@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -263,7 +264,7 @@ public partial class SInventory_UI_CreatePickingDetailForWareHouse : System.Web.
     }
 
 
-    private void SaveData()
+    private bool SaveData()
    {
        Requesition aRequesition = new Requesition();
        aRequesition.ReqId = Convert.ToInt32(hdReqId.Value);
@@ -280,8 +281,6 @@ public partial class SInventory_UI_CreatePickingDetailForWareHouse : System.Web.
        aRequesition.PickingNo = clnNoTextBox.Text.Trim();
        aRequesition.PickingDate = Convert.ToDateTime(clnDateTextBox.Text.Trim());
 
-
-       bool updateReq = aRequisitionBll.UpdatePickingInformationOnRequisition(aRequesition);
 
        List<RequsitionChild> aRequsitionChildrenList = new List<RequsitionChild>();
        for (int i = 0; i < issueGridView.Rows.Count; i++)
@@ -335,10 +334,37 @@ public partial class SInventory_UI_CreatePickingDetailForWareHouse : System.Web.
             }
        }
 
-       string msg = aRequisitionBll.UpdateIssueInformationOnRequisitionChild(Convert.ToBoolean(hfIsFromBatch.Value), aRequsitionChildrenList);
+       // All DB writes in one transaction: header + child + stock allocation + weighted avg commit or none do.
+       bool isFromBatch = Convert.ToBoolean(hfIsFromBatch.Value);
+       string msg;
+       try
+       {
+           var txOpt = new TransactionOptions
+           {
+               IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+               Timeout = TimeSpan.FromMinutes(5)
+           };
+           using (var scope = new TransactionScope(TransactionScopeOption.Required, txOpt))
+           {
+               if (aRequisitionBll.IsPickingAlreadyDone(aRequesition.ReqId.ToString()))
+               {
+                   showMessageBox("Picking Already Completed!!");
+                   return false;
+               }
+               aRequisitionBll.UpdatePickingInformationOnRequisition(aRequesition);
+               msg = aRequisitionBll.UpdateIssueInformationOnRequisitionChild(isFromBatch, aRequsitionChildrenList);
+               scope.Complete();
+           }
+       }
+       catch (Exception ex)
+       {
+           showMessageBox("Save failed, nothing was saved: " + ex.Message.Replace("'", " ").Replace("\r", " ").Replace("\n", " "));
+           return false;
+       }
 
        Clear();
        showMessageBox(msg);
+       return true;
    }
 
     private void Clear()
@@ -379,8 +405,10 @@ public partial class SInventory_UI_CreatePickingDetailForWareHouse : System.Web.
     {
         if (Validation())
         {
-            SaveData();
-            printButton_Click();
+            if (SaveData())
+            {
+                printButton_Click();
+            }
         }
     }
     protected void showMessageBox(string message)

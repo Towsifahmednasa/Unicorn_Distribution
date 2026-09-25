@@ -74,22 +74,6 @@
                                             </div>
 
                                       
-                                             <div class="row">
-         <div class="col-2"></div>
-     <div class="col-6">
-         <div class="form-group row" runat="server">
-             <label for="mainName" class="col-sm-5 col-form-label">Route:  <span style="color: red">*</span></label>
-             <div class="col-sm-7">
-                  <asp:DropDownList ID="rootDropDownList" AutoPostBack="true" OnSelectedIndexChanged="rootDropDownList_SelectedIndexChanged" runat="server" CssClass="form-control form-control-sm mySelect2 "
-        >
-    </asp:DropDownList>
-
-             </div>
-         </div>
-     </div>
-  
- </div>
-                                            
                                             <div class="row" style="display:none">
                                                 <div class="col-4"></div>
                                                 <div class="col-4">

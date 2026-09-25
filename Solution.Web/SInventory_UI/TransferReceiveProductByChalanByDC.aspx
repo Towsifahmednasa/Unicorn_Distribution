@@ -45,6 +45,20 @@
                             <div class="card-body">
 
                                 <script type="text/javascript">
+                                    // Double-click protection for the receive submit button: once the user
+                                    // confirms, the button is locked until the UpdatePanel re-renders it
+                                    // (success or failure). Server-side gate is the primary protection.
+                                    function rcvSubmitOnce(btn) {
+                                        if (btn.dataset.busy) {
+                                            return false;
+                                        }
+                                        if (btn.dataset.confirmed) {
+                                            btn.dataset.busy = "1";
+                                            btn.style.pointerEvents = 'none';
+                                            btn.style.opacity = '0.6';
+                                        }
+                                        return sweetAlertConfirm_Submit(btn);
+                                    }
                                     function pageLoad() {
                                         $('.datepicker').pickadate({
                                             selectMonths: true,
@@ -190,7 +204,7 @@
                                             <div class="col-sm-5">
 
 
-                                                <asp:LinkButton OnClientClick="return sweetAlertConfirm_Submit(this);" OnClick="submitButton_Click" runat="server" ID="submitButton" class="btn btnMyDesignSearch   btn-sm">
+                                                <asp:LinkButton OnClientClick="return rcvSubmitOnce(this);" OnClick="submitButton_Click" runat="server" ID="submitButton" class="btn btnMyDesignSearch   btn-sm">
                                             <i class="fa fa-check"></i>Submit
                                                 </asp:LinkButton>
 

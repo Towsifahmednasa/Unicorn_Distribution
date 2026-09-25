@@ -72,6 +72,18 @@ namespace Library.BLL.SInventory_BLL
         {
             return aCustomerReturnDal.GetOrderSenderNameByOrderId(orderId);
         }
+        public bool LockInvoiceForReturn(int invoiceId)
+        {
+            return aCustomerReturnDal.LockInvoiceForReturn(invoiceId);
+        }
+        public bool HasOverReturn(int invoiceId)
+        {
+            return aCustomerReturnDal.HasOverReturn(invoiceId);
+        }
+        public bool IsDeliverySalesReturnPosted(int custReturnId)
+        {
+            return aCustomerReturnDal.IsDeliverySalesReturnPosted(custReturnId);
+        }
         public bool InsertDCStoreStockReturn(int invoiceDetailId, int returnQty, int salesReturnDetailId = 0)
         {
             return aCustomerReturnDal.InsertDCStoreStockReturn(invoiceDetailId, returnQty, salesReturnDetailId);

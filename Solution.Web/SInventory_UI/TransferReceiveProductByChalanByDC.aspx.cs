@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Web;
+using System.Transactions;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using Library.BLL.SInventory_BLL;
@@ -58,7 +59,8 @@ public partial class SInventory_UI_ReceiveProductByChalanByDC : System.Web.UI.Pa
     }
     private void Save()
     {
-        List<DCStockNew> aDcStockNewsList = new List<DCStockNew>();
+        // Phase 1 — parse grid rows outside the transaction (no DB writes here)
+        List<KeyValuePair<DCStockNew, DCStoreFreezeDAO>> receiveRows = new List<KeyValuePair<DCStockNew, DCStoreFreezeDAO>>();
         for (int i = 0; i < rcvGridView.Rows.Count; i++)
         {
             TextBox rcvQtyTextBox = (TextBox) rcvGridView.Rows[i].Cells[7].FindControl("rcvQtyTextBox");
@@ -81,38 +83,69 @@ public partial class SInventory_UI_ReceiveProductByChalanByDC : System.Web.UI.Pa
                 ComUnitId=Convert.ToInt32(hdComUnitId.Value),
                 ChalanDetailsId = Convert.ToInt32(rcvGridView.DataKeys[i][1].ToString()),
                 ChalanId = Convert.ToInt32(rcvGridView.DataKeys[i][0].ToString()),
-                
+
             };
-            int DCStoreId = aChalanBll.DCStockIn2(aDcStockNew);
-            if (Convert.ToDecimal(damageTextBox.Text.Trim()) > 0)
+            DCStoreFreezeDAO aDCStoreFreezeDAO = null;
+            if (aDcStockNew.DamageQty > 0)
             {
-                DCStoreFreezeDAO aDCStoreFreezeDAO = new DCStoreFreezeDAO();
-                aDCStoreFreezeDAO.DCStoreId =   DCStoreId;
-                  
+                aDCStoreFreezeDAO = new DCStoreFreezeDAO();
+                // DCStoreId is set in phase 2, after the stock-in row is created
                 aDCStoreFreezeDAO.StorageLocation = "";
-                aDCStoreFreezeDAO.ProductCode = rcvGridView.Rows[i].Cells[0].Text;
-                aDCStoreFreezeDAO.ProductName = rcvGridView.Rows[i].Cells[1].Text;
-                aDCStoreFreezeDAO.PackSize = rcvGridView.Rows[i].Cells[2].Text;
-                aDCStoreFreezeDAO.BatchNo = rcvGridView.Rows[i].Cells[3].Text;
-                aDCStoreFreezeDAO.TotalQuantity = Convert.ToDecimal(damageTextBox.Text.Trim());
-                aDCStoreFreezeDAO.StockQty = Convert.ToDecimal(damageTextBox.Text.Trim());
+                aDCStoreFreezeDAO.ProductCode = aDcStockNew.ProductCode;
+                aDCStoreFreezeDAO.ProductName = aDcStockNew.ProductName;
+                aDCStoreFreezeDAO.PackSize = aDcStockNew.PackSize;
+                aDCStoreFreezeDAO.BatchNo = aDcStockNew.BatchNo;
+                aDCStoreFreezeDAO.TotalQuantity = aDcStockNew.DamageQty;
+                aDCStoreFreezeDAO.StockQty = aDcStockNew.DamageQty;
                 aDCStoreFreezeDAO.DamageQty = 0;
-                aDCStoreFreezeDAO.ExpDate = Convert.ToDateTime(rcvGridView.Rows[i].Cells[5].Text);
-                aDCStoreFreezeDAO.ReceiveDate = Convert.ToDateTime(rcvGridView.Rows[i].Cells[6].Text);
-                aDCStoreFreezeDAO.StockRcvDate = Convert.ToDateTime(rcvDateTextBox.Text.Trim());
-                aDCStoreFreezeDAO.ChalanNo = clnNoTextBox.Text.Trim();
-                aDCStoreFreezeDAO.ChalanDate = Convert.ToDateTime(clnDateTextBox.Text.Trim());
-                aDCStoreFreezeDAO.ComUnitId = Convert.ToInt32(hdComUnitId.Value);
+                aDCStoreFreezeDAO.ExpDate = aDcStockNew.ExpDate;
+                aDCStoreFreezeDAO.ReceiveDate = aDcStockNew.ReceiveDate;
+                aDCStoreFreezeDAO.StockRcvDate = aDcStockNew.StockRcvDate;
+                aDCStoreFreezeDAO.ChalanNo = aDcStockNew.ChalanNo;
+                aDCStoreFreezeDAO.ChalanDate = aDcStockNew.ChalanDate;
+                aDCStoreFreezeDAO.ComUnitId = aDcStockNew.ComUnitId;
                 aDCStoreFreezeDAO.StockCondition = "Restricted";
                 aDCStoreFreezeDAO.ChalanDetailsId = aDcStockNew.ChalanDetailsId;
                 aDCStoreFreezeDAO.ChalanId = Convert.ToInt32(rcvGridView.DataKeys[i][0].ToString());
-                //aDCStoreFreezeDAO.ReqId = Convert.ToInt32(rcvGridView.DataKeys[i][0].ToString());
-                //aDCStoreFreezeDAO.ReqChildId = Convert.ToInt32(rcvGridView.DataKeys[i][1].ToString());
-                //aDCStoreFreezeDAO.StockInTransfarId = Convert.ToInt32(rcvGridView.DataKeys[i][2].ToString());
-                aChalanBll.SaveDCStoreFreeze2(aDCStoreFreezeDAO);
             }
+            receiveRows.Add(new KeyValuePair<DCStockNew, DCStoreFreezeDAO>(aDcStockNew, aDCStoreFreezeDAO));
+        }
+        if (receiveRows.Count == 0)
+        {
+            showMessageBox("Nothing to receive!");
+            return;
         }
 
+        // Phase 2 — all DB writes in one transaction: all rows commit or none do
+        var txOpt = new TransactionOptions
+        {
+            IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+            Timeout = TimeSpan.FromMinutes(5)
+        };
+        using (var scope = new TransactionScope(TransactionScopeOption.Required, txOpt))
+        {
+            // Race-safe duplicate gate (UPDLOCK, held to end of transaction): a concurrent
+            // receive of the same chalan blocks here, then sees the committed IsDeliver
+            // marker and stops without writing anything.
+            if (aChalanBll.IsChalanAlreadyReceived(receiveRows[0].Key.ChalanId.ToString()))
+            {
+                showMessageBox("This chalan has already been received.");
+                Clear();
+                return;
+            }
+            foreach (KeyValuePair<DCStockNew, DCStoreFreezeDAO> row in receiveRows)
+            {
+                int DCStoreId = aChalanBll.DCStockIn2(row.Key);
+                if (row.Value != null)
+                {
+                    row.Value.DCStoreId = DCStoreId;
+                    aChalanBll.SaveDCStoreFreeze2Checked(row.Value);
+                }
+            }
+            scope.Complete();
+        }
+
+        // Best-effort SAP notification, outside the transaction (existing behavior: failures ignored)
         try
         {
             ResultInfo Res = _DAL.MakeRESTRequestWithUpdateChallan(clnNoTextBox.Text);
@@ -136,7 +169,14 @@ public partial class SInventory_UI_ReceiveProductByChalanByDC : System.Web.UI.Pa
     }
     protected void submitButton_Click(object sender, EventArgs e)
     {
-        Save();
+        try
+        {
+            Save();
+        }
+        catch (Exception exception)
+        {
+            showMessageBox("Transfer receive failed: " + exception.Message);
+        }
     }
     private void Clear()
     {

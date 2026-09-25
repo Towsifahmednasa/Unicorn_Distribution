@@ -743,7 +743,7 @@
                         <td class="TDLeft" width="13%">
                             <asp:UpdatePanel ID="UpdatePanel3" runat="server">
                                 <ContentTemplate>
-                                    <asp:Button ID="Button1" runat="server" Text="Invoice Generate" OnClick="saveButton_Click" OnClientClick="return confirm('Are you sure you want to Save Delivery Invoice ?');" />
+                                    <asp:Button ID="Button1" runat="server" Text="Invoice Generate" OnClick="saveButton_Click" UseSubmitBehavior="false" OnClientClick="if(!confirm('Are you sure you want to Save Delivery Invoice ?'))return false; this.disabled=true; this.value='Saving...';" />
                                 </ContentTemplate>
                             </asp:UpdatePanel>
                             <asp:UpdateProgress ID="UpdateProgress2" runat="server" AssociatedUpdatePanelID="UpdatePanel3"

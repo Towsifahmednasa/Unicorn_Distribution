@@ -75,6 +75,25 @@ namespace Library.DAL.SInventory_DAL
                 new SqlParameter("@SChalanId", SInventorySql.DbValue(chalanId))
             });
         }
+        public bool IsChalanAlreadyReceived(string chalanId)
+        {
+            // Race-safe duplicate gate for chalan receive. UPDLOCK is held until the
+            // ambient transaction ends, so a concurrent receive of the same chalan blocks
+            // here and then sees the first transaction's committed IsDeliver marker.
+            // Uses the EntLib connection (same pool as Execute) so the TransactionScope
+            // stays on one connection string and is not promoted to MSDTC.
+            string query = @"SELECT ISNULL(IsDeliver,'') AS IsDeliver FROM dbo.tblChalanInfo WITH (UPDLOCK, ROWLOCK) WHERE ChalanId=@ChalanId";
+            DataTable dt = aCommonInternalDal.DataContainerDataTable(query, new List<SqlParameter>
+            {
+                new SqlParameter("@ChalanId", SInventorySql.DbValue(chalanId))
+            }, "SSIDB");
+            if (dt.Rows.Count == 0)
+            {
+                return true; // unknown chalan: nothing valid to receive
+            }
+            string v = dt.Rows[0][0].ToString().Trim();
+            return v.Equals("True", StringComparison.OrdinalIgnoreCase) || v == "1";
+        }
         public bool SaveDCStoreFreeze2(DCStoreFreezeDAO aDcStoreFreezeDao)
         {
             string insertQuery = @" 

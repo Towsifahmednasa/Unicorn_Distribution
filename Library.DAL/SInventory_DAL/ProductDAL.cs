@@ -178,7 +178,7 @@ LEFT JOIN dbo.tblProCategory  cat  with (nolock) ON pro.CategoryId = cat.Categor
 
         public bool UpdateProduct(Product aProduct)
         {
-            string query = @"UPDATE tblProduct SET IsActive=@IsActive,ProductName=@ProductName,ProductCode=@ProductCode,Description=@Description,PackSize=@PackSize,CategoryId=@CategoryId,ManufacId=@ManufacId,StockUOMId=@StockUOMId,ProTypeId=@ProTypeId,ProductBrandId=@ProductBrandId,ProductGroupId=@ProductGroupId,GenericGroupId=@GenericGroupId,TherapueticGroupId=@TherapueticGroupId,ProductImage=@ProductImage,ProductLineID=@ProductLineID WHERE ProductId=@ProductId";
+            string query = @"UPDATE tblProduct SET IsActive=@IsActive,ProductName=@ProductName,ProductCode=@ProductCode,Description=@Description,PackSize=@PackSize,PackSizeId=@PackSizeId,CategoryId=@CategoryId,ManufacId=@ManufacId,StockUOMId=@StockUOMId,ProTypeId=@ProTypeId,ProductBrandId=@ProductBrandId,ProductGroupId=@ProductGroupId,GenericGroupId=@GenericGroupId,TherapueticGroupId=@TherapueticGroupId,ProductImage=@ProductImage,ProductLineID=@ProductLineID WHERE ProductId=@ProductId";
             List<SqlParameter> parameters = new List<SqlParameter>
             {
                 new SqlParameter("@IsActive", aProduct.IsActive),
@@ -186,6 +186,7 @@ LEFT JOIN dbo.tblProCategory  cat  with (nolock) ON pro.CategoryId = cat.Categor
                 new SqlParameter("@ProductCode", ToDbValue(aProduct.ProductCode)),
                 new SqlParameter("@Description", ToDbValue(aProduct.Description)),
                 new SqlParameter("@PackSize", ToDbValue(aProduct.PackSize)),
+                new SqlParameter("@PackSizeId", aProduct.PackSizeId),
                 new SqlParameter("@CategoryId", aProduct.CategoryId),
                 new SqlParameter("@ManufacId", aProduct.ManufacId),
                 new SqlParameter("@StockUOMId", aProduct.StockUOMId),
@@ -298,7 +299,8 @@ LEFT JOIN dbo.tblProCategory  cat  with (nolock) ON pro.CategoryId = cat.Categor
                 new SqlParameter("@ProductCode", ToDbValue(productCode == null ? null : productCode.Trim()))
             };
 
-            return GetDataTableByText(query, parameters);
+            // EntLib pool (same as Execute) so callers inside a TransactionScope are not promoted to MSDTC.
+            return aCommonInternalDal.DataContainerDataTable(query, parameters, "SSIDB");
         }
 
         public DataTable LoadProductSearch(string categoryId, string genericGroupId, string productLineId)

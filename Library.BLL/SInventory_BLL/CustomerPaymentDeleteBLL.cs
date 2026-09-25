@@ -17,9 +17,9 @@ namespace Library.BLL.SInventory_BLL
         {
             customerPaymentDeleteDAL.LoadInvoicesByDateRange(ddl, ComUnitId, selectedFromDateText, selectedToDateText);
         }
-        public void LoadInvoicesByRoute(DropDownList ddl, string ComUnitId, string routeID)
+        public void LoadInvoicesByDepo(DropDownList ddl, string ComUnitId)
         {
-            customerPaymentDeleteDAL.LoadInvoicesByRoute(ddl, ComUnitId, routeID);
+            customerPaymentDeleteDAL.LoadInvoicesByDepo(ddl, ComUnitId);
         }
 
         public DataTable LoadData(int invoiceId)

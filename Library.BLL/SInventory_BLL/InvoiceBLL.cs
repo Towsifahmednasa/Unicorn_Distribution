@@ -138,6 +138,10 @@ namespace Library.BLL.SInventory_BLL
         {
             return aInvoiceDal.DCInfoWithDCId(dcstoreId);
         }
+        public bool IsDeliveryAlreadyConfirmed(int invoiceId)
+        {
+            return aInvoiceDal.IsDeliveryAlreadyConfirmed(invoiceId);
+        }
         public bool SaveInvoiceDetails(List<InvoiceDetail> aInvoiceList, string comUnitId)
         {
             foreach (var invoiceDetail in aInvoiceList)

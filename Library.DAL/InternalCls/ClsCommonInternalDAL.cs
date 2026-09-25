@@ -462,6 +462,13 @@ namespace Library.DAL.InternalCls
 
             return ActionStatus;
         }
+        // Like UpdateAction but lets SQL errors propagate, so a caller inside a
+        // TransactionScope rolls back. No bool result: SPs with SET NOCOUNT ON
+        // return -1 rows, which UpdateAction reports as false even on success.
+        internal void ExecuteStoredProcedure(string StoreProcedureName, List<SqlParameter> SqlParameterlist)
+        {
+            ExecuteNonQueryAction(StoreProcedureName, SqlParameterlist, string.Empty, false);
+        }
         internal bool UpdateDataByUpdateCommand(string queryString, string dataBaseName)
         {
             try

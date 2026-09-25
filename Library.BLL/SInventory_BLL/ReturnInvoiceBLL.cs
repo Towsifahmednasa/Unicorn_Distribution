@@ -164,6 +164,11 @@ namespace Library.BLL.SInventory_BLL
         {
             return aInvoiceDal.PostSalesReturn(returnInvoiceId);
         }
+
+        public bool IsSalesReturnPosted(int returnInvoiceId)
+        {
+            return aInvoiceDal.IsSalesReturnPosted(returnInvoiceId);
+        }
         public bool SaveDCStoreFreeze(DCStockNew aStockNew,string returninvoiceiD)
         {
             aStockNew.DCStoreFreezeId = aClsPrimaryKeyFind.PrimaryKeyMax("DCStoreFreezeId", "tblDCStoreFreeze");
