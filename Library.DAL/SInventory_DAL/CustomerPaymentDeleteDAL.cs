@@ -34,10 +34,11 @@ namespace Library.DAL.SInventory_DAL
         public void LoadInvoicesByDepo(DropDownList ddl, string ComUnitId)
         {
             ClsCommonInternalDAL aInternalDal = new ClsCommonInternalDAL();
-            string queryStr = @"SELECT DISTINCT mas.CustomerCode+' : '+mas.CustomerName+' ['+ INV.InvoiceNo+']' InvoiceNo, INV.InvoiceId
+            string queryStr = @"SELECT  C.CustomerCode+' : '+ C.CustomerName +' [' + INV.InvoiceNo + ']' InvoiceNo, INV.InvoiceId
                                 FROM tblInvoice AS INV  with (nolock)
-                                INNER JOIN tblOrder AS mas   with (nolock) ON INV.OrderId = mas.OrderId
-                                INNER JOIN tblCustPayDetail AS CPD   with (nolock) ON INV.InvoiceId = CPD.InvoiceId  where mas.ComUnitId=@ComUnitId";
+                                left JOIN tblOrder AS mas   with (nolock) ON INV.OrderId = mas.OrderId
+                                INNER JOIN tblCustMaster AS c   with (nolock) ON c.CustomerMasterId = INV.CustomerMasterId
+                                INNER JOIN tblCustPayDetail AS CPD   with (nolock) ON INV.InvoiceId = CPD.InvoiceId where INV.ComUnitId=@ComUnitId";
             aInternalDal.LoadDropDownValueWithoutDataBase(ddl, "InvoiceNo", "InvoiceId", queryStr, new List<SqlParameter>
             {
                 new SqlParameter("@ComUnitId", SInventorySql.DbValue(ComUnitId))

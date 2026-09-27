@@ -23,12 +23,15 @@ public partial class SInventory_UI_InvoiceDataEditor : System.Web.UI.Page
         public string[] Editable; // null = all editable; empty = read-only grid; else whitelist
     }
 
+    private const string SalesPerson = "SalesPersonId_Invoice"; // tblInvoice column, edited via EmpName dropdown
+    private const string SalesPersonDdl = "ddlSalesPerson";
+
     private static readonly string[] AmountBDTOnly = new string[] { "DebitAmountBDT", "CreditAmountBDT" };
     private static readonly string[] PaymentAmountOnly = new string[] { "PaymentAmount" };
     private static readonly string[] VchMasterEditable = new string[] { "Narration", "TotalAmount", "TotalAmountBDT" };
     private static readonly string[] InvoiceEditable = new string[]
     {
-        "TpTotal", "TpGrandTotal", "DeliveryTpTotal", "DeliveryTpGrandTotal", "PaymentAmount"
+        "TpTotal", "TpGrandTotal", "DeliveryTpTotal", "DeliveryTpGrandTotal", "PaymentAmount", SalesPerson
     };
     private static readonly string[] InvoiceDetailEditable = new string[]
     {
@@ -218,7 +221,14 @@ public partial class SInventory_UI_InvoiceDataEditor : System.Web.UI.Page
         DataRowView drv = (DataRowView)e.Row.DataItem;
         for (int i = 0; i < drv.Row.Table.Columns.Count; i++)
         {
-            if (NameIn(c.Editable, drv.Row.Table.Columns[i].ColumnName)) continue;
+            string colName = drv.Row.Table.Columns[i].ColumnName;
+            if (gv.ID == "gvInvoice" && colName == SalesPerson)
+            {
+                e.Row.Cells[i + 1].Controls.Clear();
+                e.Row.Cells[i + 1].Controls.Add(SalesPersonDropDown(drv[colName]));
+                continue;
+            }
+            if (NameIn(c.Editable, colName)) continue;
             TableCell cell = e.Row.Cells[i + 1]; // cell 0 = command cell
             if (cell.Controls.Count == 0) continue;
             WebControl ctl = cell.Controls[0] as WebControl;
@@ -288,7 +298,14 @@ public partial class SInventory_UI_InvoiceDataEditor : System.Web.UI.Page
                     Control ctl = cell.Controls[0];
 
                     object oldVal = r[col];
-                    if (ctl is CheckBox)
+                    if (gv.ID == "gvInvoice" && col.ColumnName == SalesPerson)
+                    {
+                        // The dropdown is added in RowDataBound only, so it isn't rebuilt on postback: read the posted value.
+                        string v = Request.Form[row.UniqueID + "$" + SalesPersonDdl];
+                        if (string.IsNullOrEmpty(v)) { if (col.AllowDBNull) r[col] = DBNull.Value; }
+                        else r[col] = v;
+                    }
+                    else if (ctl is CheckBox)
                     {
                         r[col] = ((CheckBox)ctl).Checked;
                     }
@@ -356,6 +373,25 @@ public partial class SInventory_UI_InvoiceDataEditor : System.Web.UI.Page
             // No rebind on failure so the typed values stay in the edit row.
             ShowMsg("Update failed (" + c.Table + "): " + ex.Message, true);
         }
+    }
+
+    private DropDownList SalesPersonDropDown(object current)
+    {
+        DropDownList ddl = new DropDownList();
+        ddl.ID = SalesPersonDdl;
+        using (SqlConnection conn = new SqlConnection(ConnStr))
+        {
+            DataTable dt = new DataTable();
+            new SqlDataAdapter("SELECT EmpInfoId, EmpName FROM tblEmpGeneralInfo ORDER BY EmpName", conn).Fill(dt);
+            ddl.DataSource = dt;
+            ddl.DataValueField = "EmpInfoId";
+            ddl.DataTextField = "EmpName";
+            ddl.DataBind();
+        }
+        ddl.Items.Insert(0, new ListItem("-- None --", ""));
+        string cur = Fmt(current);
+        if (ddl.Items.FindByValue(cur) != null) ddl.SelectedValue = cur;
+        return ddl;
     }
 
     private static void StripHidden(DataTable dt, TableCfg c)

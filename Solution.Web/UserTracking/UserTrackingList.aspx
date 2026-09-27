@@ -5,6 +5,10 @@
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
 
     
+    <div id="coverScreen" class="divWaitingJquery" style="display:none">
+        <img src="../images/Spinner.gif" style="width:180px" class="position-set" />
+    </div>
+
     <div class="page-wrapper">
         <div class="page-content">
             <!--breadcrumb-->
@@ -97,6 +101,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div style="height:60px;"></div><%-- keeps last rows clear of the fixed page footer --%>
                     </div>
                 </div>
             </div>
@@ -135,42 +140,42 @@
 
         function GetUserLocation() {
 
-            var empId = $('#ddlEmpName').val();
-            var trackDate = $('#dashboardDate2').val();
-            if (empId != 0) {
+            var empId = parseInt($('#ddlEmpName').val(), 10);
+            // ISO date, so server parsing doesn't depend on pickadate's "26 September, 2026" format/culture
+            var trackDate = $('#dashboardDate2').pickadate('picker').get('select', 'yyyy-mm-dd');
 
-                if (trackDate != "") {
-                    $.ajax({
-                        url: 'UserTrackingList.aspx/GetUserLocationTrackig',
-                        type: "POST", contentType: "application/json; charset=utf-8",
-                        async: true,
-                        data: JSON.stringify({ 'empId': empId, 'trackDate': trackDate }),
+            if (!empId) { toastr.warning('Please select an employee'); return; }
+            if (!trackDate) { toastr.warning('Please select a date'); return; }
 
-                        dataType: 'json',
-                        success: function (data) {
-                            var result = JSON.parse(data.d);
-                            console.log(result);
-                            // Filter out empty or null locations
-                            if (result) {
-                                result = result.filter(function (item) {
-                                    return item.AddressName && item.AddressName.toString().trim() !== "" && item.AddressName.toString().trim().toLowerCase() !== "null";
-                                });
-                            }
-                            result = SortLocationDataByTime(result);
-                            LoadMap(result);
-                            BindLocationTable(result);
+            $.ajax({
+                url: 'UserTrackingList.aspx/GetUserLocationTrackig',
+                type: "POST", contentType: "application/json; charset=utf-8",
+                async: true,
+                data: JSON.stringify({ 'empId': empId, 'trackDate': trackDate }),
 
-                        },
-                        complete: function () {
-                        }
-                    });
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#coverScreen").show();
+                },
+                success: function (data) {
+                    var result = JSON.parse(data.d);
+                    // Filter out empty or null locations
+                    if (result) {
+                        result = result.filter(function (item) {
+                            return item.AddressName && item.AddressName.toString().trim() !== "" && item.AddressName.toString().trim().toLowerCase() !== "null";
+                        });
+                    }
+                    result = SortLocationDataByTime(result);
+                    BindLocationTable(result);
+                    try { LoadMap(result); } catch (e) { console.error('LoadMap failed', e); }
+                },
+                error: function () {
+                    toastr.error('Failed to load location data');
+                },
+                complete: function () {
+                    $("#coverScreen").hide();
                 }
-                else {
-
-                }
-            }
-
-
+            });
         }
 
 

@@ -100,7 +100,9 @@ BEGIN
             SUM(CASE 
                     WHEN (Trans_Type = 'Receive' OR Trans_Type IS NULL OR Trans_Type = 'Available' OR Trans_Type = '') 
                          AND ISNULL(ReturnFromInvoiceDetailId, 0) = 0 
+                         AND ISNULL(ReturnInvoiceDetailId, 0) = 0
                          AND ISNULL(StockCondition, '') NOT IN ('B2BReceive', 'TransferReceive', 'SalesReturn', 'Return')
+                         AND ISNULL(StockCondition, '') NOT LIKE '%Transcational Sales Return%'
                          AND (ChalanNo NOT LIKE 'IDT%' OR ChalanNo IS NULL)
                          AND (ChalanNo NOT LIKE 'RIN%' AND ChalanNo NOT LIKE 'RINV%')
                          AND StockQty > 0
@@ -117,6 +119,7 @@ BEGIN
                              OR ChalanNo LIKE 'IDT%'
                          )
                          AND ISNULL(ReturnFromInvoiceDetailId, 0) = 0
+                         AND ISNULL(ReturnInvoiceDetailId, 0) = 0
                          AND ISNULL(StockCondition, '') NOT IN ('DeliveryReturn', 'SalesReturn', 'Return')
                          AND StockQty > 0
                     THEN StockQty ELSE 0 
@@ -124,11 +127,14 @@ BEGIN
             
             -- Return Rcv: Customer Return / Sales Return (Receive Date wise)
             SUM(CASE 
-                    WHEN ISNULL(ReturnFromInvoiceDetailId, 0) <> 0 
-                         OR ISNULL(StockCondition, '') IN ('SalesReturn', 'Return')
-                         OR ChalanNo LIKE 'RIN%'
-                         OR ChalanNo LIKE 'RINV%'
-                    THEN StockQty ELSE 0 
+                    WHEN StockQty > 0
+                         AND (ISNULL(ReturnFromInvoiceDetailId, 0) <> 0
+                              OR ISNULL(ReturnInvoiceDetailId, 0) <> 0
+                              OR ISNULL(StockCondition, '') IN ('SalesReturn', 'Return')
+                              OR ISNULL(StockCondition, '') LIKE '%Transcational Sales Return%'
+                              OR ChalanNo LIKE 'RIN%'
+                              OR ChalanNo LIKE 'RINV%')
+                    THEN StockQty ELSE 0
                 END) AS ReturnRcvQty,
             
             -- Sales Issue: Customer Deliveries / Sales (Transaction Date wise)
