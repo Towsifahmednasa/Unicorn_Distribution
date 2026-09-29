@@ -300,7 +300,8 @@ namespace Library.BLL.SInventory_BLL
             }
             aTablePriceCase = aProductBll.ProductPriceDetailWithCaseBLL(aRequsitionChild.ProductCode);
           decimal restQty1 = 0;
-          
+          decimal allocatedQty = 0;
+
           if (aDataTableCurrentStockofCentralStock.Rows.Count>0)
 
           {
@@ -342,6 +343,7 @@ namespace Library.BLL.SInventory_BLL
                       aStockInTransfar.ReceiveDate = Convert.ToDateTime(aDataTableCurrentStockofCentralStock.Rows[i]["ReceiveDate"].ToString().Trim());
                       //////////////////////////////////end////////////////////
                       restQty1 = restQty;
+                      allocatedQty += aStockInTransfar.Quantity;
                       aStockInTransfar.StockInTransfarId = aClsPrimaryKeyFind.PrimaryKeyMax("StockInTransfarId", "tblStockInTransfar", "SSIDB");
                       aRequisitionDal.StockInTransfarInsertDAL(aStockInTransfar);
                       aRequisitionDal.UpdateCentralStockStockOut(0, receiveId);
@@ -376,6 +378,7 @@ namespace Library.BLL.SInventory_BLL
                        Convert.ToDateTime(aDataTableCurrentStockofCentralStock.Rows[i]["mfgDate"].ToString().Trim());
                       aStockInTransfar.ReceiveDate = Convert.ToDateTime(aDataTableCurrentStockofCentralStock.Rows[i]["ReceiveDate"].ToString().Trim());
                       //////////////////////////////////end////////////////////
+                      allocatedQty += qty;
                       aStockInTransfar.StockInTransfarId= aClsPrimaryKeyFind.PrimaryKeyMax("StockInTransfarId", "tblStockInTransfar", "SSIDB");
                       aRequisitionDal.StockInTransfarInsertDAL(aStockInTransfar);
                       aRequisitionDal.UpdateCentralStockStockOut(restQty, receiveId);
@@ -385,8 +388,21 @@ namespace Library.BLL.SInventory_BLL
                       aRequisitionDal.ProcessWeightedAvg(aStockInTransfar.StockInTransfarId);
                       break;
                   }
-                 
+
               }
+          }
+
+          // Guard: batch-wise availability can lag the ledger qty shown on the page (corrupt/legacy
+          // rows). Allocating less than IssueQty here used to succeed silently, leaving a picked
+          // requisition with missing tblStockInTransfar rows that the DC could never receive.
+          // Throw so the caller's TransactionScope rolls the whole picking back.
+          if (allocatedQty < aRequsitionChild.IssueQty)
+          {
+              throw new Exception(string.Format(
+                  "Stock shortage for product {0}{1}: requested {2}, available {3}. Picking cancelled.",
+                  aRequsitionChild.ProductCode,
+                  IsFromBatch ? " (batch " + aRequsitionChild.BatchNo + ")" : "",
+                  aRequsitionChild.IssueQty, allocatedQty));
           }
           return true;
       }
