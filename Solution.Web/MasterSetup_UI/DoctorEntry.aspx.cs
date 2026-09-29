@@ -199,8 +199,12 @@ public partial class MasterSetup_UI_DoctorEntry : System.Web.UI.Page
                 }
 
 
-                gv_Chamber.DataSource = dt;
-                gv_Chamber.DataBind();
+                // Own query: the master SP left-joins chambers, which gives one blank row for a doctor with none.
+                using (DataTable dtChamber = _DAL.GetDoctorChambers(Id))
+                {
+                    gv_Chamber.DataSource = dtChamber;
+                    gv_Chamber.DataBind();
+                }
 
 
                 using (DataTable dtSpecialDay = _DAL.GetContactById(Id))
@@ -527,6 +531,9 @@ public partial class MasterSetup_UI_DoctorEntry : System.Web.UI.Page
                 ddlSalesPerson.DataValueField = "EmpInfoId";
                 ddlSalesPerson.DataTextField = "EmpName";
                 ddlSalesPerson.DataBind();
+                // The earlier bind leaves index 0 selected, which here is the first employee and
+                // got saved as the doctor's sales person on every edit.
+                ddlSalesPerson.ClearSelection();
             }
         }
         catch (Exception ex) { }
@@ -563,14 +570,62 @@ public partial class MasterSetup_UI_DoctorEntry : System.Web.UI.Page
  
     public void Chamber_gv_Initial()
     {
+        BindChambers(NewChamberTable());
+    }
+
+    private DataTable NewChamberTable()
+    {
         DataTable aDataTable = new DataTable();
+        aDataTable.Columns.Add("ChemberId");
         aDataTable.Columns.Add("ChamberTypeId");
         aDataTable.Columns.Add("ChamberTypeName");
         aDataTable.Columns.Add("ChamberName");
         aDataTable.Columns.Add("ChamberAddress");
         aDataTable.Columns.Add("Phone");
+        aDataTable.Columns.Add("Shift");
+        aDataTable.Columns.Add("SittingTime");
+        aDataTable.Columns.Add("ChamberContactName");
+        return aDataTable;
+    }
+
+    // The chamber list lives only in the grid between postbacks, so it is read back from there.
+    private DataTable ChamberTableFromGrid()
+    {
+        DataTable aDataTable = NewChamberTable();
+        foreach (GridViewRow row in gv_Chamber.Rows)
+        {
+            DataRow dataRow = aDataTable.NewRow();
+            dataRow["ChemberId"] = ((HiddenField)row.FindControl("hfChemberId")).Value;
+            dataRow["ChamberTypeId"] = ((HiddenField)row.FindControl("hfChamberTypeId")).Value;
+            dataRow["ChamberTypeName"] = ((Label)row.FindControl("lbl_ChamberType")).Text;
+            dataRow["ChamberName"] = ((Label)row.FindControl("lbl_ChamberName")).Text;
+            dataRow["ChamberAddress"] = ((Label)row.FindControl("lbl_ChamberAddress")).Text;
+            dataRow["Phone"] = ((Label)row.FindControl("lbl_Phone")).Text;
+            dataRow["Shift"] = ((Label)row.FindControl("lbl_Shift")).Text;
+            dataRow["SittingTime"] = ((Label)row.FindControl("lbl_SittingTime")).Text;
+            dataRow["ChamberContactName"] = ((Label)row.FindControl("lbl_ChamberContactName")).Text;
+            aDataTable.Rows.Add(dataRow);
+        }
+        return aDataTable;
+    }
+
+    private void BindChambers(DataTable aDataTable)
+    {
         gv_Chamber.DataSource = aDataTable;
         gv_Chamber.DataBind();
+    }
+
+    private void ClearChamberInputs()
+    {
+        hfChamberEditIndex.Value = string.Empty;
+        addButtonChamber.Text = "<i class=\"fa fa-plus-circle\"></i>Add To List";
+        ChamberTypeSelect.SelectedValue = string.Empty;
+        ddlChamberShift.SelectedValue = string.Empty;
+        txtChamberName.Text = string.Empty;
+        txtChamberAddress.Text = string.Empty;
+        txtPhone.Text = string.Empty;
+        txtSittingTime.Text = string.Empty;
+        txtChamberContactName.Text = string.Empty;
     }
     protected void showMessageBox(string message)
     {
@@ -658,26 +713,22 @@ public partial class MasterSetup_UI_DoctorEntry : System.Web.UI.Page
             List<DoctorChemberDetailDAO> ChamberList = new List<DoctorChemberDetailDAO>();
 
 
-            for (int i = 0; i < gv_Chamber.Rows.Count; i++)
+            foreach (DataRow chamber in ChamberTableFromGrid().Rows)
             {
-
-                HiddenField hfChamberTypeId = ((HiddenField)gv_Chamber.Rows[i].Cells[1].FindControl("hfChamberTypeId"));
-
-
-                Label lbl_ChamberName = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberName"));
-                Label lbl_ChamberType = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberType"));
-                Label lbl_ChamberAddress = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberAddress"));
-                Label lbl_Phone = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_Phone"));
-
+                string chemberId = chamber["ChemberId"].ToString();
+                string chamberTypeId = chamber["ChamberTypeId"].ToString();
 
                 DoctorChemberDetailDAO _DAO = new DoctorChemberDetailDAO();
 
-                _DAO.ChamberTypeId = string.IsNullOrEmpty(hfChamberTypeId.Value) ? (int?)null : int.Parse(hfChamberTypeId.Value);
+                _DAO.ChemberId = string.IsNullOrEmpty(chemberId) ? 0 : int.Parse(chemberId);
+                _DAO.ChamberTypeId = string.IsNullOrEmpty(chamberTypeId) ? (int?)null : int.Parse(chamberTypeId);
 
-                _DAO.Name = string.IsNullOrEmpty(lbl_ChamberName.Text) ? null : lbl_ChamberName.Text;
-                _DAO.Address = string.IsNullOrEmpty(lbl_ChamberAddress.Text) ? null : lbl_ChamberAddress.Text;
-                _DAO.Phone = string.IsNullOrEmpty(lbl_Phone.Text) ? null : lbl_Phone.Text;
-             
+                _DAO.Name = NullIfEmpty(chamber["ChamberName"]);
+                _DAO.Address = NullIfEmpty(chamber["ChamberAddress"]);
+                _DAO.Phone = NullIfEmpty(chamber["Phone"]);
+                _DAO.Shift = NullIfEmpty(chamber["Shift"]);
+                _DAO.SittingTime = NullIfEmpty(chamber["SittingTime"]);
+                _DAO.ChamberContactName = NullIfEmpty(chamber["ChamberContactName"]);
 
                 ChamberList.Add(_DAO);
 
@@ -929,98 +980,76 @@ public partial class MasterSetup_UI_DoctorEntry : System.Web.UI.Page
             ddlThana.Items.Clear();
         }
     }
+    // Adds the entered chamber, or writes it back over the row being edited.
     public void AddChamber()
     {
-        DataTable aDataTable = new DataTable();
-        aDataTable.Columns.Add("ChamberTypeId");
-        aDataTable.Columns.Add("ChamberTypeName");
-        aDataTable.Columns.Add("ChamberName");
-        aDataTable.Columns.Add("ChamberAddress");
-        aDataTable.Columns.Add("Phone");
+        DataTable aDataTable = ChamberTableFromGrid();
 
+        int editIndex;
+        bool isEdit = int.TryParse(hfChamberEditIndex.Value, out editIndex) && editIndex >= 0 && editIndex < aDataTable.Rows.Count;
+        DataRow dataRow = isEdit ? aDataTable.Rows[editIndex] : aDataTable.NewRow();
 
-
-        DataRow dataRow = null;
-        for (int i = 0; i < gv_Chamber.Rows.Count; i++)
-        {
-            dataRow = aDataTable.NewRow();
-
-
-            HiddenField hfChamberTypeId = ((HiddenField)gv_Chamber.Rows[i].Cells[1].FindControl("hfChamberTypeId"));
-        
-
-            Label lbl_ChamberName = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberName"));
-            Label lbl_ChamberType = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberType"));
-            Label lbl_ChamberAddress = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberAddress"));
-            Label lbl_Phone = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_Phone"));
-
-            dataRow["ChamberTypeId"] = hfChamberTypeId.Value;
-            dataRow["ChamberTypeName"] = lbl_ChamberType.Text;
-            dataRow["ChamberName"] = lbl_ChamberName.Text;
-            dataRow["ChamberAddress"] = lbl_ChamberAddress.Text;
-            dataRow["Phone"] = lbl_Phone.Text;
-
-
-
-            aDataTable.Rows.Add(dataRow);
-        }
-        dataRow = aDataTable.NewRow();
-        dataRow["ChamberTypeName"] = ChamberTypeSelect.SelectedIndex > 0 ? ChamberTypeSelect.SelectedItem.Text : null; 
-        dataRow["ChamberTypeId"] = ChamberTypeSelect.SelectedIndex > 0 ? int.Parse(ChamberTypeSelect.SelectedValue) : (int?)null;
+        dataRow["ChamberTypeName"] = ChamberTypeSelect.SelectedItem.Text;
+        dataRow["ChamberTypeId"] = ChamberTypeSelect.SelectedValue;
         dataRow["ChamberName"] = txtChamberName.Text.Trim();
         dataRow["ChamberAddress"] = txtChamberAddress.Text.Trim();
         dataRow["Phone"] = txtPhone.Text.Trim();
+        dataRow["Shift"] = ddlChamberShift.SelectedValue;
+        dataRow["SittingTime"] = txtSittingTime.Text.Trim();
+        dataRow["ChamberContactName"] = txtChamberContactName.Text.Trim();
 
+        if (!isEdit)
+            aDataTable.Rows.Add(dataRow);
 
-        aDataTable.Rows.Add(dataRow);
-        gv_Chamber.DataSource = aDataTable;
-        gv_Chamber.DataBind();
-        ChamberTypeSelect.SelectedValue = string.Empty;
-        txtChamberName.Text = string.Empty;
-        txtChamberAddress.Text = string.Empty;
-        txtPhone.Text = string.Empty;
-
+        BindChambers(aDataTable);
+        ClearChamberInputs();
     }
+
+    public void EditChamber(int row)
+    {
+        DataRow chamber = ChamberTableFromGrid().Rows[row];
+
+        ClearChamberInputs();
+        SelectIfListed(ChamberTypeSelect, chamber["ChamberTypeId"].ToString());
+        SelectIfListed(ddlChamberShift, chamber["Shift"].ToString());
+        txtChamberName.Text = chamber["ChamberName"].ToString();
+        txtChamberAddress.Text = chamber["ChamberAddress"].ToString();
+        txtPhone.Text = chamber["Phone"].ToString();
+        txtSittingTime.Text = chamber["SittingTime"].ToString();
+        txtChamberContactName.Text = chamber["ChamberContactName"].ToString();
+
+        hfChamberEditIndex.Value = row.ToString();
+        addButtonChamber.Text = "<i class=\"fa fa-plus-circle\"></i>Update";
+        txtChamberName.Focus();
+    }
+
     public void RemoveChamber(int row)
     {
-        DataTable aDataTable = new DataTable();
-        aDataTable.Columns.Add("ChamberTypeId");
-        aDataTable.Columns.Add("ChamberTypeName");
-        aDataTable.Columns.Add("ChamberName");
-        aDataTable.Columns.Add("ChamberAddress");
-        aDataTable.Columns.Add("Phone");
-
-        DataRow dataRow = null;
-        for (int i = 0; i < gv_Chamber.Rows.Count; i++)
-        {
-            if (i != row)
-            {
-                dataRow = aDataTable.NewRow();
-
-                HiddenField hfChamberTypeId = ((HiddenField)gv_Chamber.Rows[i].Cells[1].FindControl("hfChamberTypeId"));
-
-
-                Label lbl_ChamberName = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberName"));
-                Label lbl_ChamberType = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberType"));
-                Label lbl_ChamberAddress = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_ChamberAddress"));
-                Label lbl_Phone = ((Label)gv_Chamber.Rows[i].Cells[1].FindControl("lbl_Phone"));
-
-                dataRow["ChamberTypeId"] = hfChamberTypeId.Value;
-                dataRow["ChamberTypeName"] = lbl_ChamberType.Text;
-                dataRow["ChamberName"] = lbl_ChamberName.Text;
-                dataRow["ChamberAddress"] = lbl_ChamberAddress.Text;
-                dataRow["Phone"] = lbl_Phone.Text;
-                aDataTable.Rows.Add(dataRow);
-
-
-
-
-            }
-        }
-        gv_Chamber.DataSource = aDataTable;
-        gv_Chamber.DataBind();
-
+        DataTable aDataTable = ChamberTableFromGrid();
+        aDataTable.Rows.RemoveAt(row);
+        BindChambers(aDataTable);
+        // Row numbers shift after a removal, so drop any edit in progress.
+        ClearChamberInputs();
     }
+
+    // Old data can hold a value that is no longer in the dropdown (inactive chamber type, free-text shift).
+    private static void SelectIfListed(DropDownList list, string value)
+    {
+        if (list.Items.FindByValue(value) != null)
+            list.SelectedValue = value;
+    }
+
+    private static string NullIfEmpty(object value)
+    {
+        string text = Convert.ToString(value);
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
+    protected void editChamber_Click(object sender, EventArgs e)
+    {
+        EditChamber(((GridViewRow)((LinkButton)sender).NamingContainer).RowIndex);
+    }
+
     protected void addButtonChamber_Click(object sender, EventArgs e)
     {
         if (ChemberValidation()) {
@@ -1046,7 +1075,8 @@ public partial class MasterSetup_UI_DoctorEntry : System.Web.UI.Page
 
             try
             {
-                using (DataTable dt = _CommonDataLoad.GetDegree_ActiveDoctorTypeId(DoctorTypeSelect.SelectedValue))
+                // Degrees are not tagged to a doctor type in tblDoctorDegree, so load all active ones.
+                using (DataTable dt = _CommonDataLoad.GetDegree_Active())
                 {
                     degreeSelect.DataSource = dt;
                     degreeSelect.DataValueField = "DegreeId";

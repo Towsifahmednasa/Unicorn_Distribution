@@ -165,6 +165,12 @@ public partial class MasterSetup_UI_DoctorView : System.Web.UI.Page
 
     public void UserPersmissionValidation()
     {
+        // Session expired / app restarted: go to login instead of crashing.
+        if (Session["UserRoleID"] == null)
+        {
+            Response.Redirect("../Login.aspx");
+            return;
+        }
         if (Session["UserRoleID"].ToString() != "2")
         {
             try
@@ -340,6 +346,14 @@ public partial class MasterSetup_UI_DoctorView : System.Web.UI.Page
         if (PerVali())
         {
             DataTable aDataTable = _DAL.GetDoctorList(parm);
+            aDataTable.Columns.Add("IsActiveText", typeof(string), "IIF(ISNULL(IsActive, false), 'Yes', 'No')");
+            aDataTable.Columns.Add("EntryByText", typeof(string), "IIF(ISNULL(UserEntryBy, '') IN ('', 'N/A'), 'System Admin', UserEntryBy)");
+            // Never-updated rows (no UpdateDate) stay blank instead of showing System Admin.
+            aDataTable.Columns.Add("UpdateByText", typeof(string), "IIF(UpdateDate IS NULL, '', IIF(ISNULL(UserUpdateBy, '') IN ('', 'N/A'), 'System Admin', UserUpdateBy))");
+            aDataTable.Columns.Add("RowSL", typeof(int));
+            for (int i = 0; i < aDataTable.Rows.Count; i++)
+                aDataTable.Rows[i]["RowSL"] = i + 1;
+            AddDetailColumns(aDataTable);
         loadGridView.DataSource = aDataTable;
         loadGridView.DataBind();
         lblCount.Text = "Total : " + aDataTable.Rows.Count.ToString();
@@ -352,6 +366,43 @@ public partial class MasterSetup_UI_DoctorView : System.Web.UI.Page
         }
     }
 
+
+    // Adds the chamber/contact/special day/speciality/degree/brand columns. How many of each
+    // ("Chamber Name 1..n") depends on the doctors in the current list, so the grid columns are rebuilt per search.
+    private void AddDetailColumns(DataTable list)
+    {
+        const string marker = "dtl";
+        for (int i = loadGridView.Columns.Count - 1; i >= 0; i--)
+        {
+            if (loadGridView.Columns[i].AccessibleHeaderText == marker)
+                loadGridView.Columns.RemoveAt(i);
+        }
+
+        int insertAt = 0;
+        while (insertAt < loadGridView.Columns.Count && loadGridView.Columns[insertAt].HeaderText != "Is Active")
+            insertAt++;
+
+        ILookup<string, DataRow> rowsByDoctor = list.Rows.Cast<DataRow>().ToLookup(r => r["DoctorId"].ToString());
+
+        foreach (DataRow detail in _DAL.GetDoctorDetailRows().Rows)
+        {
+            string column = detail["ColName"].ToString();
+            foreach (DataRow doctor in rowsByDoctor[detail["DoctorId"].ToString()])
+            {
+                if (!list.Columns.Contains(column))
+                {
+                    list.Columns.Add(column, typeof(string));
+                    loadGridView.Columns.Insert(insertAt++, new BoundField
+                    {
+                        DataField = column,
+                        HeaderText = detail["Header"].ToString(),
+                        AccessibleHeaderText = marker
+                    });
+                }
+                doctor[column] = detail["Val"].ToString();
+            }
+        }
+    }
 
     private bool PerVali()
     {

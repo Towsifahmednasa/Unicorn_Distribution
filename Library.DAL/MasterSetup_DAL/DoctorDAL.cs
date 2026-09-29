@@ -187,9 +187,23 @@ namespace Library.DAL.MasterSetup_DAL
                             aSQL.Add(new SqlParameter("@Name", item.Name ?? (object)DBNull.Value));
                             aSQL.Add(new SqlParameter("@Address", item.Address ?? (object)DBNull.Value));
                             aSQL.Add(new SqlParameter("@Phone", item.Phone ?? (object)DBNull.Value));
+                            aSQL.Add(new SqlParameter("@ChemberId", item.ChemberId));
+                            aSQL.Add(new SqlParameter("@Shift", item.Shift ?? (object)DBNull.Value));
+                            aSQL.Add(new SqlParameter("@SittingTime", item.SittingTime ?? (object)DBNull.Value));
+                            aSQL.Add(new SqlParameter("@ChamberContactName", item.ChamberContactName ?? (object)DBNull.Value));
 
-
-                            aInformation.isSuccess = accessManager.SaveData("sp_Save_BDoctorChemberDetail", aSQL);
+                            // sp_Update_DoctorMaster keeps chambers that prescriptions/DCRs point at, so those are
+                            // updated in place; everything else was deleted there and is inserted again
+                            // (same duplicate rule as sp_Save_BDoctorChemberDetail).
+                            aInformation.isSuccess = accessManager.ExecuteNonQueryByText(@"
+IF EXISTS (SELECT 1 FROM dbo.tblDoctorChemberDetail WHERE ChemberId = @ChemberId AND DoctorId = @DoctorId)
+    UPDATE dbo.tblDoctorChemberDetail
+       SET ChamberTypeId = @ChamberTypeId, Name = @Name, Phone = @Phone, Address = @Address,
+           Shift = @Shift, SittingTime = @SittingTime, ChamberContactName = @ChamberContactName
+     WHERE ChemberId = @ChemberId AND DoctorId = @DoctorId
+ELSE IF NOT EXISTS (SELECT 1 FROM dbo.tblDoctorChemberDetail WHERE ChamberTypeId = @ChamberTypeId AND DoctorId = @DoctorId AND Name = @Name)
+    INSERT INTO dbo.tblDoctorChemberDetail (ChamberTypeId, DoctorId, Name, Phone, Address, Shift, SittingTime, ChamberContactName)
+    VALUES (@ChamberTypeId, @DoctorId, @Name, @Phone, @Address, @Shift, @SittingTime, @ChamberContactName)", aSQL);
 
                         }
 
@@ -434,6 +448,116 @@ namespace Library.DAL.MasterSetup_DAL
             }
         }
 
+
+        public DataTable GetDoctorChambers(string doctorId)
+        {
+            try
+            {
+                accessManager.SqlConnectionOpen(DataBase.SalesDB);
+                List<SqlParameter> aSqlParameterlist = new List<SqlParameter>();
+                aSqlParameterlist.Add(new SqlParameter("@DoctorId", doctorId));
+                return accessManager.GetDataTableByText(@"
+SELECT d.ChemberId, d.ChamberTypeId, c.ChamberName AS ChamberTypeName, d.Name AS ChamberName, d.Phone,
+       d.Address AS ChamberAddress, d.Shift, d.SittingTime, d.ChamberContactName
+FROM dbo.tblDoctorChemberDetail d WITH (NOLOCK)
+LEFT JOIN dbo.tblDoctorChamber c WITH (NOLOCK) ON c.ChamberId = d.ChamberTypeId
+WHERE d.DoctorId = @DoctorId
+ORDER BY d.ChemberId", aSqlParameterlist);
+            }
+            catch (Exception e)
+            {
+                throw;
+            }
+            finally
+            {
+                accessManager.SqlConnectionClose();
+            }
+        }
+
+        // One row per doctor child value (chamber, contact, special day, speciality, degree, brand),
+        // ordered the way the columns should appear. The doctor list pivots these into "Chamber Name 1", "Brand 2"... columns.
+        public DataTable GetDoctorDetailRows()
+        {
+            const string query = @"
+SELECT x.DoctorId,
+       v.Col + CAST(x.RN AS VARCHAR(10)) AS ColName,
+       v.Header + ' ' + CAST(x.RN AS VARCHAR(10)) AS Header,
+       v.Val
+FROM (
+    SELECT 1 AS Grp, d.DoctorId,
+           ROW_NUMBER() OVER (PARTITION BY d.DoctorId ORDER BY d.ChamberTypeId, d.ChemberId) AS RN,
+           CAST(c.ChamberName AS NVARCHAR(500)) AS V1, CAST(d.Name AS NVARCHAR(500)) AS V2,
+           CAST(d.Phone AS NVARCHAR(500)) AS V3, CAST(d.Address AS NVARCHAR(500)) AS V4,
+           CAST(d.Shift AS NVARCHAR(500)) AS V5, CAST(d.SittingTime AS NVARCHAR(500)) AS V6,
+           CAST(d.ChamberContactName AS NVARCHAR(500)) AS V7
+    FROM tblDoctorChemberDetail d WITH (NOLOCK)
+    LEFT JOIN tblDoctorChamber c WITH (NOLOCK) ON c.ChamberId = d.ChamberTypeId
+    UNION ALL
+    SELECT 2, d.DoctorId,
+           ROW_NUMBER() OVER (PARTITION BY d.DoctorId ORDER BY d.ContactId),
+           CAST(ISNULL(t.ContactType, d.ContactType) AS NVARCHAR(500)), CAST(d.Contact AS NVARCHAR(500)),
+           NULL, NULL, NULL, NULL, NULL
+    FROM tblDoctorContactDetail d WITH (NOLOCK)
+    LEFT JOIN tbl_ContactType t WITH (NOLOCK) ON t.ContactTypeId = d.ContactTypeId
+    UNION ALL
+    SELECT 3, d.DoctorId,
+           ROW_NUMBER() OVER (PARTITION BY d.DoctorId ORDER BY d.SpecialDate, d.SpecialDayInt),
+           CAST(s.SpecialDay AS NVARCHAR(500)), CONVERT(NVARCHAR(50), d.SpecialDate, 106),
+           NULL, NULL, NULL, NULL, NULL
+    FROM tblDoctorSpecialDayDetail d WITH (NOLOCK)
+    LEFT JOIN tblDoctorSpecialDay s WITH (NOLOCK) ON s.SpecialDayId = d.SpecialDayId
+    UNION ALL
+    SELECT 4, d.DoctorId,
+           ROW_NUMBER() OVER (PARTITION BY d.DoctorId ORDER BY d.SpecialityId, d.DoctorSpId),
+           CAST(s.SpecialityName AS NVARCHAR(500)), NULL, NULL, NULL, NULL, NULL, NULL
+    FROM tblDoctorSpecialityDetail d WITH (NOLOCK)
+    LEFT JOIN tblDoctorSpeciality s WITH (NOLOCK) ON s.SpecialityId = d.SpecialityId
+    UNION ALL
+    SELECT 5, d.DoctorId,
+           ROW_NUMBER() OVER (PARTITION BY d.DoctorId ORDER BY d.DegId, d.DoctorDegId),
+           CAST(g.DegreeName AS NVARCHAR(500)), NULL, NULL, NULL, NULL, NULL, NULL
+    FROM tblDoctorDegreeDetail d WITH (NOLOCK)
+    LEFT JOIN tblDoctorDegree g WITH (NOLOCK) ON g.DegreeId = d.DegId
+    UNION ALL
+    SELECT 6, d.DoctorId,
+           ROW_NUMBER() OVER (PARTITION BY d.DoctorId ORDER BY d.BrandId, d.DoctorBrandId),
+           CAST(p.ProductSQName AS NVARCHAR(500)), NULL, NULL, NULL, NULL, NULL, NULL
+    FROM tblDoctorBrandDetail d WITH (NOLOCK)
+    LEFT JOIN tblProductSQ p WITH (NOLOCK) ON p.ProductBrandId = d.BrandId
+) x
+CROSS APPLY (VALUES
+    (1, 1, 'DtlChamberType', 'Chamber Type', x.V1),
+    (1, 2, 'DtlChamberName', 'Chamber Name', x.V2),
+    (1, 3, 'DtlChamberPhone', 'Chamber Phone', x.V3),
+    (1, 4, 'DtlChamberAddress', 'Chamber Address', x.V4),
+    (1, 5, 'DtlChamberShift', 'Chamber Shift', x.V5),
+    (1, 6, 'DtlChamberSittingTime', 'Chamber Sitting Time', x.V6),
+    (1, 7, 'DtlChamberContactName', 'Chamber Contact Name', x.V7),
+    (2, 1, 'DtlContactType', 'Contact Type', x.V1),
+    (2, 2, 'DtlContact', 'Contact', x.V2),
+    (3, 1, 'DtlSpecialDay', 'Special Day', x.V1),
+    (3, 2, 'DtlSpecialDate', 'Special Date', x.V2),
+    (4, 1, 'DtlSpeciality', 'Speciality', x.V1),
+    (5, 1, 'DtlDegree', 'Degree', x.V1),
+    (6, 1, 'DtlBrand', 'Brand', x.V1)
+) v(Grp, Fld, Col, Header, Val)
+WHERE v.Grp = x.Grp AND LTRIM(RTRIM(ISNULL(v.Val, ''))) <> ''
+ORDER BY x.Grp, x.RN, v.Fld";
+
+            try
+            {
+                accessManager.SqlConnectionOpen(DataBase.SalesDB);
+                return accessManager.GetDataTableByText(query, null);
+            }
+            catch (Exception e)
+            {
+                throw;
+            }
+            finally
+            {
+                accessManager.SqlConnectionClose();
+            }
+        }
 
         public DataTable GetDoctorTransferList(string Parm)
         {

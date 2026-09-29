@@ -18,6 +18,12 @@ namespace Library.DAO.MasterSetup_DAO
         public string Phone { get; set; }
 
         public string Address { get; set; }
+
+        public string Shift { get; set; }
+
+        public string SittingTime { get; set; }
+
+        public string ChamberContactName { get; set; }
     }
 
 

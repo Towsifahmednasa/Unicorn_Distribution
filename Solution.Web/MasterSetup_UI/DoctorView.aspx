@@ -75,6 +75,53 @@
             font-size: 13px;
             font-weight: bold;
         }
+
+        /* Freeze first 3 columns (SL, Doctor Code, Doctor Name) on horizontal scroll.
+           Widths are fixed so the left offsets line up: 60 + 120 = 180. */
+        [id$="loadGridView"] > thead > tr > th:nth-child(-n+3),
+        [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(-n+3) {
+            position: sticky;
+            z-index: 1;
+            background-color: #fff;
+        }
+
+        [id$="loadGridView"] > thead > tr > th:nth-child(1),
+        [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(1) {
+            left: 0;
+            min-width: 60px;
+            max-width: 60px;
+        }
+
+        [id$="loadGridView"] > thead > tr > th:nth-child(2),
+        [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(2) {
+            left: 60px;
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        [id$="loadGridView"] > thead > tr > th:nth-child(3),
+        [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(3) {
+            left: 180px;
+            min-width: 220px;
+            max-width: 220px;
+            white-space: normal;
+        }
+
+        /* Keep "Show entries" / "Search" / pager in view while the wide table scrolls sideways. */
+        #MainGradeDiv .dataTables_length,
+        #MainGradeDiv .dataTables_filter,
+        #MainGradeDiv .dataTables_info,
+        #MainGradeDiv .dataTables_paginate {
+            position: sticky;
+            float: left;
+            left: 0;
+        }
+
+        #MainGradeDiv .dataTables_filter,
+        #MainGradeDiv .dataTables_paginate {
+            left: 260px;
+            margin-left: 40px;
+        }
     </style>
     <div class="page-wrapper">
         <div class="page-content">
@@ -133,6 +180,18 @@
                                                 placeholder: $(this).data('placeholder'),
                                                 allowClear: Boolean($(this).data('allow-clear')),
                                             });
+
+                                            // "Show N entries" + "Search" on the doctor list. The grid is re-rendered on
+                                            // every UpdatePanel postback, so this runs from pageLoad, not document.ready.
+                                            var $grid = $('#ContentPlaceHolder1_loadGridView');
+                                            if ($grid.find('thead').length && !$.fn.DataTable.isDataTable($grid)) {
+                                                $grid.DataTable({
+                                                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                                                    pageLength: 10,
+                                                    ordering: false,
+                                                    dom: 'lfrtip'
+                                                });
+                                            }
                                         }
                                     </script>
 
@@ -375,19 +434,17 @@
 
                                         <asp:GridView ID="loadGridView" runat="server" AutoGenerateColumns="False"
                                             DataKeyNames="DoctorId" OnRowCommand="loadGridView_RowCommand"
-                                            CssClass="table table-striped table-bordered" OnPreRender="gv_DocumentUpload_PreRender" AllowPaging="True" PageIndex="0" OnPageIndexChanging="loadGridView_PageIndexChanging">
+                                            CssClass="table table-striped table-bordered" OnPreRender="gv_DocumentUpload_PreRender" AllowPaging="False">
                                             <Columns>
 
-                                                <asp:TemplateField HeaderText="SL">
-                                                    <ItemTemplate>
-                                                        <asp:Label ID="LabelSL" Text='<%# Container.DataItemIndex + 1 %>' runat="server"></asp:Label>
-
-                                                    </ItemTemplate>
-                                                </asp:TemplateField>
+                                                <%-- No TemplateFields in this grid: the dynamic detail columns make the Columns collection
+                                                     reload from ViewState on postback, and TemplateFields come back without their template. --%>
+                                                <asp:BoundField DataField="RowSL" HeaderText="SL" />
                                                 <asp:BoundField DataField="DoctorCode" HeaderText="Doctor Code" />
                                                 <asp:BoundField DataField="DoctorName" HeaderText="Doctor Name" />
-                                                <asp:BoundField DataField="StreetAddress" HeaderText="Street Address" />
-                                                <asp:BoundField DataField="ContactName" Visible="True" HeaderText="Mobile NO" />
+                                                <asp:BoundField DataField="StreetAddress" Visible="False" HeaderText="Street Address" />
+                                                <asp:BoundField DataField="ContactName" Visible="False" HeaderText="Mobile NO" />
+                                                <asp:BoundField DataField="Gender" HeaderText="Gender" />
                                                  <asp:BoundField DataField="SalesPersonName" HeaderText="Sales Person Name" />
                                                 <asp:BoundField DataField="RegionCode" Visible="False" HeaderText="Zone Code" />
                                                 <asp:BoundField DataField="AreaCode" Visible="False" HeaderText="Area Code" />
@@ -406,17 +463,16 @@
 
                                                   <asp:BoundField DataField="StationTypeName" Visible="False" HeaderText="MIO Tour Type" />
                                                   <asp:BoundField DataField="Dept" Visible="False" HeaderText="Dept Tagging" />
+                                                <asp:BoundField DataField="IsActiveText" HeaderText="Is Active" />
+                                                <asp:BoundField DataField="EntryByText" HeaderText="Entry By" />
+                                                <asp:BoundField DataField="EntryDate" HeaderText="Entry Date" />
+                                                <asp:BoundField DataField="UpdateByText" HeaderText="Update By" />
+                                                <asp:BoundField DataField="UpdateDate" HeaderText="Update Date" DataFormatString="{0:dd MMM yyyy}" />
 
 
 
-                                                <asp:TemplateField HeaderText="Edit">
-                                                    <ItemTemplate>
-
-                                                        <asp:LinkButton ID="LinkButton1" runat="server" class="btn-warning  btn-sm mb-1 mb-md-0"
-                                                            CommandArgument='<%#Eval("DoctorId") %>' CommandName="EditData"><i class='bx bxs-edit' aria-hidden='true'></i></asp:LinkButton>
-
-                                                    </ItemTemplate>
-                                                </asp:TemplateField>
+                                                <asp:HyperLinkField HeaderText="Edit" DataNavigateUrlFields="DoctorId" DataNavigateUrlFormatString="DoctorEntry.aspx?mid={0}"
+                                                    Target="_blank" Text="&lt;span class='btn-warning btn-sm mb-1 mb-md-0'&gt;&lt;i class='bx bxs-edit' aria-hidden='true'&gt;&lt;/i&gt;&lt;/span&gt;" />
                                             </Columns>
                                             <PagerStyle HorizontalAlign="left" CssClass="GridPager" />
                                         </asp:GridView>

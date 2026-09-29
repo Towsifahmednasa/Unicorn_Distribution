@@ -521,17 +521,54 @@
                                     </div>
 
                                     <div class="row">
+                                        <div class="col-6">
+                                            <div class="form-group row">
+                                                <label for="ddlChamberShift" class="col-sm-3 col-form-label">Shift:  </label>
+
+                                                <div class="col-sm-7">
+                                                    <asp:DropDownList runat="server" ID="ddlChamberShift" CssClass="form-select form-select-sm mb-3 mySelect2">
+                                                        <asp:ListItem Value="">Please Select From List</asp:ListItem>
+                                                        <asp:ListItem Value="Morning">Morning</asp:ListItem>
+                                                        <asp:ListItem Value="Evening">Evening</asp:ListItem>
+                                                    </asp:DropDownList>
+                                                </div>
+
+                                            </div>
+
+                                            <div class="form-group row">
+                                                <label for="txtSittingTime" class="col-sm-3 col-form-label">Sitting Time:  </label>
+
+                                                <div class="col-sm-7">
+                                                    <asp:TextBox runat="server" CssClass="form-control form-control-sm mb-3 " ID="txtSittingTime" placeholder="e.g. Sat - Thu: 5:00 PM - 9:00 PM"></asp:TextBox>
+                                                </div>
+
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <div class="form-group row">
+                                                <label for="txtChamberContactName" class="col-sm-3 col-form-label">Chamber Contact Name:  </label>
+
+                                                <div class="col-sm-7">
+                                                    <asp:TextBox runat="server" CssClass="form-control form-control-sm mb-3 " ID="txtChamberContactName" placeholder="Chamber Contact Name"></asp:TextBox>
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
                                         <div class="col-9">
                                         </div>
 
                                         <div class="col-2">
+                                            <asp:HiddenField runat="server" ID="hfChamberEditIndex" />
                                             <asp:LinkButton ID="addButtonChamber" runat="server" CssClass="btn btn-sm btn-success pull-left" OnClick="addButtonChamber_Click"><i class="fa fa-plus-circle"></i>Add To List</asp:LinkButton>
                                         </div>
                                     </div>
                                     <br />
                                     <div class="row">
-                                        <div class="col-2">&nbsp;</div>
-                                        <div class="col-8">
+                                        <div class="col-12">
 
                                             <div class="table-responsive" id="MainGradeDiv">
 
@@ -543,6 +580,7 @@
                                                             <ItemTemplate>
                                                                 <%#Container.DataItemIndex+1 %>
                                                                 <asp:HiddenField runat="server" ID="hfChamberTypeId" Value='<%#Eval("ChamberTypeId")%>' />
+                                                                <asp:HiddenField runat="server" ID="hfChemberId" Value='<%#Eval("ChemberId")%>' />
                                                             </ItemTemplate>
                                                         </asp:TemplateField>
                                                         <asp:TemplateField HeaderText="Chamber Type">
@@ -569,6 +607,30 @@
                                                         <asp:TemplateField HeaderText="Chamber Address">
                                                             <ItemTemplate>
                                                                 <asp:Label ID="lbl_ChamberAddress" runat="server" Text='<%#Eval("ChamberAddress") %>'></asp:Label>
+                                                            </ItemTemplate>
+                                                        </asp:TemplateField>
+
+                                                        <asp:TemplateField HeaderText="Shift">
+                                                            <ItemTemplate>
+                                                                <asp:Label ID="lbl_Shift" runat="server" Text='<%#Eval("Shift") %>'></asp:Label>
+                                                            </ItemTemplate>
+                                                        </asp:TemplateField>
+
+                                                        <asp:TemplateField HeaderText="Sitting Time">
+                                                            <ItemTemplate>
+                                                                <asp:Label ID="lbl_SittingTime" runat="server" Text='<%#Eval("SittingTime") %>'></asp:Label>
+                                                            </ItemTemplate>
+                                                        </asp:TemplateField>
+
+                                                        <asp:TemplateField HeaderText="Chamber Contact Name">
+                                                            <ItemTemplate>
+                                                                <asp:Label ID="lbl_ChamberContactName" runat="server" Text='<%#Eval("ChamberContactName") %>'></asp:Label>
+                                                            </ItemTemplate>
+                                                        </asp:TemplateField>
+
+                                                        <asp:TemplateField HeaderText="Edit">
+                                                            <ItemTemplate>
+                                                                <asp:LinkButton ID="editChamber" runat="server" OnClick="editChamber_Click" CssClass="btn-warning  btn-sm mb-1 mb-md-0"><i class='bx bxs-edit' aria-hidden='true'></i></asp:LinkButton>
                                                             </ItemTemplate>
                                                         </asp:TemplateField>
 
