@@ -216,6 +216,7 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
             TextBox amountBox = (TextBox)orderGridView.Rows[i].FindControl("payAmountTextBox");
             TextBox discountBox = (TextBox)orderGridView.Rows[i].FindControl("discountTextBox");
             TextBox aitBox = (TextBox)orderGridView.Rows[i].FindControl("aitTextBox");
+            TextBox vatBox = (TextBox)orderGridView.Rows[i].FindControl("vatTextBox");
             DropDownList ddlBank = (DropDownList)orderGridView.Rows[i].FindControl("ddlBank");
             DropDownList ddlCash = (DropDownList)orderGridView.Rows[i].FindControl("ddlCash");
             CheckBox cbBank = (CheckBox)orderGridView.Rows[i].FindControl("isBank");
@@ -238,6 +239,10 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
                 if (aitBox != null)
                 {
                     aitBox.Text = "0.00";
+                }
+                if (vatBox != null)
+                {
+                    vatBox.Text = "0.00";
                 }
 
                 if (paymentTypeName.Trim() == "Cash")
@@ -263,6 +268,7 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
                 if (amountBox != null) amountBox.Text = "";
                 if (discountBox != null) discountBox.Text = "";
                 if (aitBox != null) aitBox.Text = "";
+                if (vatBox != null) vatBox.Text = "";
                 if (cbCash != null) cbCash.Checked = false;
                 if (cbBank != null) cbBank.Checked = false;
                 if (ddlBank != null) ddlBank.Items.Clear();
@@ -375,6 +381,7 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
                 CheckBox chkAdjust = (CheckBox)orderGridView.Rows[i].FindControl("chkAdjust");
                 TextBox payAmountTextBox = (TextBox)orderGridView.Rows[i].FindControl("payAmountTextBox");
                 TextBox aitTextBox = (TextBox)orderGridView.Rows[i].FindControl("aitTextBox");
+                TextBox vatTextBox = (TextBox)orderGridView.Rows[i].FindControl("vatTextBox");
                 HiddenField hfCustomerMasterId = (HiddenField)orderGridView.Rows[i].FindControl("hfCustomerMasterId");
 
                 HiddenField hfMarketId = (HiddenField)orderGridView.Rows[i].FindControl("hfMarketId");
@@ -449,21 +456,20 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
 
 
                         decimal _TP_Pay=0;
-                        decimal _Vat_Pay = 0;
                         _TP_Pay = Convert.ToDecimal(hfTP_Pay.Value);
-                        _Vat_Pay = Convert.ToDecimal(hfVat_Pay.Value);
 
                         decimal payAmount = Convert.ToDecimal(payAmountTextBox.Text);
                         decimal aitAmount = (aitTextBox != null && !string.IsNullOrEmpty(aitTextBox.Text)) ? Convert.ToDecimal(aitTextBox.Text) : 0;
+                        decimal vatAmount = (vatTextBox != null && !string.IsNullOrEmpty(vatTextBox.Text)) ? Convert.ToDecimal(vatTextBox.Text) : 0;
                         TextBox discountTextBox = (TextBox)orderGridView.Rows[i].FindControl("discountTextBox");
                         decimal discountAmount = (discountTextBox != null && !string.IsNullOrEmpty(discountTextBox.Text)) ? Convert.ToDecimal(discountTextBox.Text) : 0;
-                        decimal totalSettled = payAmount + aitAmount + discountAmount;
+                        decimal totalSettled = payAmount + aitAmount + vatAmount + discountAmount;
 
                         CustPaymentDetail aCustPaymentDetail = new CustPaymentDetail();
                         aCustPaymentDetail.InvoiceId = Convert.ToInt32(orderGridView.DataKeys[i]["InvoiceId"].ToString());
                         aCustPaymentDetail.PaymentAmount = payAmount;
                         aCustPaymentDetail.TPAmount      = _TP_Pay;
-                        aCustPaymentDetail.VATAmount     = _Vat_Pay;
+                        aCustPaymentDetail.VATAmount     = vatAmount;
                         aCustPaymentDetail.AIT           = aitAmount;
                         aCustPaymentDetail.Discount      = discountAmount;
                         aCustPaymentDetail.IsAdjust      = chkAdjust.Checked;
@@ -613,6 +619,17 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
         CalculateTotal();
     }
 
+    protected void vatTextBox_TextChanged(object sender, EventArgs e)
+    {
+        TextBox vatTextBox = (TextBox)sender;
+        GridViewRow currentRow = (GridViewRow)vatTextBox.Parent.Parent;
+        int rowindex = 0;
+        rowindex = currentRow.RowIndex;
+        PayAmountChange(rowindex);
+
+        CalculateTotal();
+    }
+
     protected void discountTextBox_TextChanged(object sender, EventArgs e)
     {
         TextBox discountTextBox = (TextBox)sender;
@@ -630,6 +647,7 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
         TextBox payAmountTextBox = (TextBox)orderGridView.Rows[rowindex].FindControl("payAmountTextBox");
         TextBox discountTextBox = (TextBox)orderGridView.Rows[rowindex].FindControl("discountTextBox");
         TextBox aitTextBox = (TextBox)orderGridView.Rows[rowindex].FindControl("aitTextBox");
+        TextBox vatTextBox = (TextBox)orderGridView.Rows[rowindex].FindControl("vatTextBox");
         Label lbl_PrvAmount = (Label)orderGridView.Rows[rowindex].FindControl("lblPaymentAmount");
         Label lblTotalDelivery = (Label)orderGridView.Rows[rowindex].FindControl("lblTotalDelivery");
         Label lblDue = (Label)orderGridView.Rows[rowindex].FindControl("lblDue");
@@ -637,7 +655,8 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
         decimal payamount = string.IsNullOrEmpty(payAmountTextBox.Text) ? 0 : Convert.ToDecimal(payAmountTextBox.Text);
         decimal discountamount = (discountTextBox != null && !string.IsNullOrEmpty(discountTextBox.Text)) ? Convert.ToDecimal(discountTextBox.Text) : 0;
         decimal aitamount = (aitTextBox != null && !string.IsNullOrEmpty(aitTextBox.Text)) ? Convert.ToDecimal(aitTextBox.Text) : 0;
-        decimal mainamount = payamount + discountamount + aitamount;
+        decimal vatamount = (vatTextBox != null && !string.IsNullOrEmpty(vatTextBox.Text)) ? Convert.ToDecimal(vatTextBox.Text) : 0;
+        decimal mainamount = payamount + discountamount + aitamount + vatamount;
         decimal delamount = 0;
         decimal Dueamount = 0;
 
@@ -704,6 +723,7 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
             payAmountTextBox.Text = "0";
             if (discountTextBox != null) discountTextBox.Text = "0.00";
             if (aitTextBox != null) aitTextBox.Text = "0.00";
+            if (vatTextBox != null) vatTextBox.Text = "0.00";
             payAmountTextBox.Focus();
             showMessageBox("Cannot Be Greater then Invoice Quantity ");
 
@@ -942,6 +962,7 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
 
         TextBox discountBox = (TextBox)orderGridView.Rows[rowindex].FindControl("discountTextBox");
         TextBox aitBox = (TextBox)orderGridView.Rows[rowindex].FindControl("aitTextBox");
+        TextBox vatBox = (TextBox)orderGridView.Rows[rowindex].FindControl("vatTextBox");
 
         if (cb != null && cb.Checked)
         {
@@ -957,6 +978,10 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
             if (aitBox != null)
             {
                 aitBox.Text = "0.00";
+            }
+            if (vatBox != null)
+            {
+                vatBox.Text = "0.00";
             }
 
             if (paymentTypeName.Trim() == "Cash")
@@ -979,6 +1004,7 @@ public partial class SInventory_UI_CustomerPayment : System.Web.UI.Page
             if (amountBox != null) amountBox.Text = "";
             if (discountBox != null) discountBox.Text = "";
             if (aitBox != null) aitBox.Text = "";
+            if (vatBox != null) vatBox.Text = "";
             if (cbCash != null) cbCash.Checked = false;
             if (cbBank != null) cbBank.Checked = false;
             if (ddlBank != null) ddlBank.Items.Clear();

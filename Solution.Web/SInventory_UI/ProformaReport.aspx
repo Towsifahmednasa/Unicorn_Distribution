@@ -252,7 +252,7 @@
                                                 <asp:BoundField DataField="PackSize" HeaderText="Pack Size" />
                                                 <asp:BoundField DataField="BatchNo" HeaderText="Batch No" />
                                                 <asp:BoundField DataField="ExpDate" HeaderText="Exp Date" />
-                                                <asp:BoundField DataField="Quantity" HeaderText="Order Qty" />
+                                                <asp:BoundField DataField="Quantity" HeaderText="Sales Qty" />
 
                                                 <asp:BoundField
                                                     DataField="GrossValue" HeaderText="TP" />

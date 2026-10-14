@@ -37,8 +37,8 @@ namespace Library.DAL.SInventory_DAL
 
         public bool SaveDataForProduct(Product aProduct)
         {
-            string insertQuery = @"insert into tblProduct (ProductId,ProductCode,ProductName,Description,PackSize,CategoryId,ManufacId,StockUOMId,ProTypeId,ProductBrandId,CaseId,PackSizeId,TherapueticGroupId,GenericGroupId,ProductGroupId,ProductImage,ProductLineID,IsActive) 
-            values (@ProductId,@ProductCode,@ProductName,@Description,@PackSize,@CategoryId,@ManufacId,@StockUOMId,@ProTypeId,@ProductBrandId,@CaseId,@PackSizeId,@TherapueticGroupId,@GenericGroupId,@ProductGroupId,@ProductImage,@ProductLineID,@IsActive)";
+            string insertQuery = @"insert into tblProduct (ProductId,ProductCode,ProductName,Description,PackSize,CategoryId,ManufacId,StockUOMId,ProTypeId,ProductBrandId,CaseId,PackSizeId,TherapueticGroupId,GenericGroupId,ProductGroupId,ProductImage,ProductLineID,IsActive,GroupId) 
+            values (@ProductId,@ProductCode,@ProductName,@Description,@PackSize,@CategoryId,@ManufacId,@StockUOMId,@ProTypeId,@ProductBrandId,@CaseId,@PackSizeId,@TherapueticGroupId,@GenericGroupId,@ProductGroupId,@ProductImage,@ProductLineID,@IsActive,@GroupId)";
 
             List<SqlParameter> parameters = new List<SqlParameter>
             {
@@ -59,7 +59,9 @@ namespace Library.DAL.SInventory_DAL
                 new SqlParameter("@ProductGroupId", ToDbValue(aProduct.ProductGroupId)),
                 new SqlParameter("@ProductImage", ToDbValue(aProduct.ProductImage)),
                 new SqlParameter("@ProductLineID", ToDbValue(aProduct.ProductLineID)),
-                new SqlParameter("@IsActive", aProduct.IsActive)
+                new SqlParameter("@IsActive", aProduct.IsActive),
+                new SqlParameter("@GroupId", 1)
+
             };
 
             return aCommonInternalDal.UpdateDataByUpdateCommandNew(insertQuery, parameters);

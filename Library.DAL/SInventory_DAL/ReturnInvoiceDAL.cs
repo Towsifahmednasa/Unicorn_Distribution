@@ -375,6 +375,8 @@ namespace Library.DAL.SInventory_DAL
             // PostSalesReturn's bool cannot signal success. This mirrors the SP's own guards:
             // IsPosting must be 1, and when the return amount (@ReturnNetAmount logic in the SP)
             // is positive the AR-reversal voucher (TableID 2018) must exist in the accounts DB.
+            // Only a "Market Sales Return" voucher counts: delivery returns use the same TableID and
+            // ids from 1, so a bare TableID + id match could be another document's voucher.
             const string query = @"
 DECLARE @Amt DECIMAL(18,4) =
     (SELECT ISNULL(TpGrandTotal, ISNULL(TpTotal, 0)) FROM dbo.tblReturnInvoice WHERE ReturnInvoiceId = @ReturnInvoiceId);
@@ -384,7 +386,8 @@ SELECT CASE WHEN RI.IsPosting = 1
              AND (@Amt <= 0
                   OR EXISTS (SELECT 1 FROM CSTL_ACCDB_Unicorn.dbo.tblDebitCreditVoucherMaster
                              WHERE TableID = 2018 AND CommonPK_ID = RI.ReturnInvoiceId
-                               AND (IsInventoryValuation = 0 OR IsInventoryValuation IS NULL)))
+                               AND (IsInventoryValuation = 0 OR IsInventoryValuation IS NULL)
+                               AND Narration LIKE 'Market Sales Return%'))
        THEN 1 ELSE 0 END AS IsPosted
 FROM dbo.tblReturnInvoice RI
 WHERE RI.ReturnInvoiceId = @ReturnInvoiceId";
@@ -576,6 +579,14 @@ WHERE c.CustomerCode = @CustomerCode OR c.CustomerName = @CustomerCode";
             string query = @"SELECT ReturnInvoiceNo FROM dbo.tblReturnInvoice WHERE ReturnInvoiceId = @ReturnInvoiceId";
             aDataTableEmpInfo = GetDataTable(query, Parameter("@ReturnInvoiceId", CustomerMasterId.Trim()));
             return aDataTableEmpInfo;
+        }
+        public DataTable GetCustomerInvoices(int customerMasterId)
+        {
+            const string query = @"SELECT InvoiceId, InvoiceNo + ' (' + CONVERT(VARCHAR, InvoiceDate, 106) + ')' AS InvoiceNo
+                                   FROM dbo.tblInvoice
+                                   WHERE CustomerMasterId = @CustomerMasterId AND DeliveryInvoiceStatus IN ('Full','Partial')
+                                   ORDER BY InvoiceDate DESC, InvoiceId DESC";
+            return GetDataTable(query, Parameter("@CustomerMasterId", customerMasterId));
         }
         public DataTable DCStockQuantity(DCStore aReceive)
         {

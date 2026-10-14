@@ -28,5 +28,7 @@ namespace Library.DAO.SInventory_Entities
         public string ProductImage { get; set; }
         public string ProductDCID { get; set; }
         public bool IsActive { get; set; }
+        public bool GroupId { get; set; }
+
     }
 }

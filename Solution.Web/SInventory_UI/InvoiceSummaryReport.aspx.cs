@@ -96,19 +96,24 @@ public partial class SInventory_UI_InvoiceSummaryReport : System.Web.UI.Page
             decimal totalReceivable = 0;
             decimal totalPaid = 0;
             decimal totalDue = 0;
+            decimal totalAdjustment = 0;
 
             if (dt != null && dt.Rows.Count > 0)
             {
                 foreach (DataRow r in dt.Rows)
                 {
                     totalReceivable += Convert.ToDecimal(r["Receiveable Amount"] == DBNull.Value ? 0 : r["Receiveable Amount"]);
-                    totalPaid += Convert.ToDecimal(r["Total Payment"] == DBNull.Value ? 0 : r["Total Payment"]);
+                    totalPaid += Convert.ToDecimal(r["Total Payment"] == DBNull.Value ? 0 : r["Total Payment"])
+                               + Convert.ToDecimal(r["VAT Amount"] == DBNull.Value ? 0 : r["VAT Amount"])
+                               + Convert.ToDecimal(r["AIT Amount"] == DBNull.Value ? 0 : r["AIT Amount"]);
+                    totalAdjustment += Convert.ToDecimal(r["Adjustment Amount"] == DBNull.Value ? 0 : r["Adjustment Amount"]);
                     totalDue += Convert.ToDecimal(r["Due Amount"] == DBNull.Value ? 0 : r["Due Amount"]);
                 }
             }
 
             lblTotalReceivable.Text = "Total Receivable: " + totalReceivable.ToString("N2");
             lblTotalPaid.Text = "Total Paid: " + totalPaid.ToString("N2");
+            lblTotalAdjustment.Text = "Total Adjustment: " + totalAdjustment.ToString("N2");
             lblTotalDue.Text = "Total Due: " + totalDue.ToString("N2");
         }
         catch (Exception ex)
@@ -126,7 +131,7 @@ public partial class SInventory_UI_InvoiceSummaryReport : System.Web.UI.Page
 
             if (e.CommandName == "PrintProforma")
             {
-                string url = "../SInventory_RPTVIEW/ProformaReportPrintViewer.aspx?InvNo=" + Server.UrlEncode(argument);
+                string url = "../SInventory_RPTVIEW/ProformaInvoiceHtmlViewer.aspx?InvNo=" + Server.UrlEncode(argument);
                 string script = string.Format("openReportWindow('{0}');", url);
                 ScriptManager.RegisterStartupScript(this, this.GetType(), "PrintPI", script, true);
             }
@@ -190,17 +195,17 @@ public partial class SInventory_UI_InvoiceSummaryReport : System.Web.UI.Page
                 worksheet.Cell(1, 1).Value = "Invoice Summary Report";
                 worksheet.Cell(1, 1).Style.Font.FontSize = 16;
                 worksheet.Cell(1, 1).Style.Font.Bold = true;
-                worksheet.Range("A1:K1").Merge();
+                worksheet.Range("A1:O1").Merge();
 
                 worksheet.Cell(2, 1).Value = "Report Period: " + InvoiceDateTextBox.Text + " to " + todateTextBox.Text;
                 worksheet.Cell(2, 1).Style.Font.Italic = true;
-                worksheet.Range("A2:K2").Merge();
+                worksheet.Range("A2:O2").Merge();
 
                 // Add header row
                 string[] headers = new string[] {
-                    "SL", "Business Unit", "Customer Code", "Customer Name", 
-                    "Proforma Invoice No", "Proforma Date", "Delivery Invoice No", 
-                    "Delivery Date", "Receivable Amount", "Total Payment", "Last Payment Date", "Due Amount"
+                    "SL", "Business Unit", "Customer Code", "Customer Name",
+                    "Proforma Invoice No", "Proforma Date", "Delivery Invoice No",
+                    "Delivery Date", "Receivable Amount", "Total Payment", "VAT", "AIT", "Adjustment (Bad Debt/Promo)", "Last Payment Date", "Due Amount"
                 };
 
                 for (int col = 0; col < headers.Length; col++)
@@ -239,14 +244,23 @@ public partial class SInventory_UI_InvoiceSummaryReport : System.Web.UI.Page
                     worksheet.Cell(startRow + row, 10).Value = Convert.ToDecimal(dr["Total Payment"] == DBNull.Value ? 0 : dr["Total Payment"]);
                     worksheet.Cell(startRow + row, 10).Style.NumberFormat.Format = "#,##0.00";
 
+                    worksheet.Cell(startRow + row, 11).Value = Convert.ToDecimal(dr["VAT Amount"] == DBNull.Value ? 0 : dr["VAT Amount"]);
+                    worksheet.Cell(startRow + row, 11).Style.NumberFormat.Format = "#,##0.00";
+
+                    worksheet.Cell(startRow + row, 12).Value = Convert.ToDecimal(dr["AIT Amount"] == DBNull.Value ? 0 : dr["AIT Amount"]);
+                    worksheet.Cell(startRow + row, 12).Style.NumberFormat.Format = "#,##0.00";
+
+                    worksheet.Cell(startRow + row, 13).Value = Convert.ToDecimal(dr["Adjustment Amount"] == DBNull.Value ? 0 : dr["Adjustment Amount"]);
+                    worksheet.Cell(startRow + row, 13).Style.NumberFormat.Format = "#,##0.00";
+
                     if (dr["Last Payment Date"] != DBNull.Value)
                     {
-                        worksheet.Cell(startRow + row, 11).Value = Convert.ToDateTime(dr["Last Payment Date"]);
-                        worksheet.Cell(startRow + row, 11).Style.DateFormat.Format = "dd-mmm-yyyy";
+                        worksheet.Cell(startRow + row, 14).Value = Convert.ToDateTime(dr["Last Payment Date"]);
+                        worksheet.Cell(startRow + row, 14).Style.DateFormat.Format = "dd-mmm-yyyy";
                     }
 
-                    worksheet.Cell(startRow + row, 12).Value = Convert.ToDecimal(dr["Due Amount"] == DBNull.Value ? 0 : dr["Due Amount"]);
-                    worksheet.Cell(startRow + row, 12).Style.NumberFormat.Format = "#,##0.00";
+                    worksheet.Cell(startRow + row, 15).Value = Convert.ToDecimal(dr["Due Amount"] == DBNull.Value ? 0 : dr["Due Amount"]);
+                    worksheet.Cell(startRow + row, 15).Style.NumberFormat.Format = "#,##0.00";
                 }
 
                 // Auto-fit columns

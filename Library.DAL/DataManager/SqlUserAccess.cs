@@ -18,14 +18,14 @@
         //public static string UserName = @"sa";
         //public static string PassWord = @"sa1234";
 
-        public static string DataSource = @"TOWSIF\MSSQLSERVER2019";
-        public static string UserName = @"sa";
-        public static string PassWord = @"sa1234";
+        //public static string DataSource = @"TOWSIF\MSSQLSERVER2019";
+        //public static string UserName = @"sa";
+        //public static string PassWord = @"sa1234";
 
 
-        //public static string DataSource = @"CSTL-VM-01\MSSQLSERVER2019";
-        //public static string UserName = "sa";
-        //public static string PassWord = "N@fcoZ@s2023#";
+        public static string DataSource = @"CSTL-VM-01\MSSQLSERVER2019";
+        public static string UserName = "sa";
+        public static string PassWord = "N@fcoZ@s2023#";
 
 
 

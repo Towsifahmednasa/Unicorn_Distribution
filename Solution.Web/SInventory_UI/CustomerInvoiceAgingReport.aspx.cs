@@ -215,51 +215,47 @@ public partial class SInventory_UI_CustomerInvoiceAgingReport : System.Web.UI.Pa
         if (e.Row.RowType == DataControlRowType.DataRow)
         {
             // Accumulate financial totals from DataRow
-            decimal invoiceAmt, paidAmt, outstandingAmt;
-
-            string invText = e.Row.Cells[4].Text.Replace(",", "").Trim();
-            if (decimal.TryParse(invText, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out invoiceAmt))
+            // 5 Invoice Amount, 6 Paid Amount, 7 Adjustment, 9 Outstanding
+            foreach (int idx in new[] { 5, 6, 7, 9 })
             {
-                footerTotals[4] = (footerTotals.ContainsKey(4) ? footerTotals[4] : 0) + invoiceAmt;
-            }
-
-            string paidText = e.Row.Cells[5].Text.Replace(",", "").Trim();
-            if (decimal.TryParse(paidText, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out paidAmt))
-            {
-                footerTotals[5] = (footerTotals.ContainsKey(5) ? footerTotals[5] : 0) + paidAmt;
-            }
-
-            string outText = e.Row.Cells[7].Text.Replace(",", "").Trim();
-            if (decimal.TryParse(outText, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out outstandingAmt))
-            {
-                footerTotals[7] = (footerTotals.ContainsKey(7) ? footerTotals[7] : 0) + outstandingAmt;
+                decimal val;
+                string text = e.Row.Cells[idx].Text.Replace(",", "").Trim();
+                if (decimal.TryParse(text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out val))
+                {
+                    footerTotals[idx] = (footerTotals.ContainsKey(idx) ? footerTotals[idx] : 0) + val;
+                }
             }
         }
         else if (e.Row.RowType == DataControlRowType.Footer)
         {
             e.Row.Cells[0].Text = "";
-            e.Row.Cells[1].Text = "Grand Total:";
-            e.Row.Cells[1].Font.Bold = true;
-            e.Row.Cells[1].CssClass = "text-left font-weight-bold";
+            e.Row.Cells[1].Text = "";
+            e.Row.Cells[2].Text = "Grand Total:";
+            e.Row.Cells[2].Font.Bold = true;
+            e.Row.Cells[2].CssClass = "text-left font-weight-bold";
 
-            e.Row.Cells[2].Text = "";
             e.Row.Cells[3].Text = "";
-
-            e.Row.Cells[4].Text = footerTotals.ContainsKey(4) ? footerTotals[4].ToString("#,##0.00") : "0.00";
-            e.Row.Cells[4].Font.Bold = true;
-            e.Row.Cells[4].CssClass = "text-right font-weight-bold";
+            e.Row.Cells[4].Text = "";
 
             e.Row.Cells[5].Text = footerTotals.ContainsKey(5) ? footerTotals[5].ToString("#,##0.00") : "0.00";
             e.Row.Cells[5].Font.Bold = true;
             e.Row.Cells[5].CssClass = "text-right font-weight-bold";
 
-            e.Row.Cells[6].Text = "";
+            e.Row.Cells[6].Text = footerTotals.ContainsKey(6) ? footerTotals[6].ToString("#,##0.00") : "0.00";
+            e.Row.Cells[6].Font.Bold = true;
+            e.Row.Cells[6].CssClass = "text-right font-weight-bold";
 
             e.Row.Cells[7].Text = footerTotals.ContainsKey(7) ? footerTotals[7].ToString("#,##0.00") : "0.00";
             e.Row.Cells[7].Font.Bold = true;
-            e.Row.Cells[7].CssClass = "text-right font-weight-bold text-danger";
+            e.Row.Cells[7].CssClass = "text-right font-weight-bold";
 
             e.Row.Cells[8].Text = "";
+
+            e.Row.Cells[9].Text = footerTotals.ContainsKey(9) ? footerTotals[9].ToString("#,##0.00") : "0.00";
+            e.Row.Cells[9].Font.Bold = true;
+            e.Row.Cells[9].CssClass = "text-right font-weight-bold text-danger";
+
+            e.Row.Cells[10].Text = "";
         }
     }
 

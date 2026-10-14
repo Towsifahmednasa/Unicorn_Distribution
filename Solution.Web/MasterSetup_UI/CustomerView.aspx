@@ -362,7 +362,7 @@
                                         <%--onrowcommand="loadGridView_RowCommand"--%>
 
                                         <asp:GridView ID="loadGridView" runat="server" AutoGenerateColumns="False"
-                                            DataKeyNames="CustomerMasterId" OnRowCommand="loadGridView_RowCommand"
+                                            DataKeyNames="CustomerMasterId,CustomerCode" OnRowCommand="loadGridView_RowCommand" OnRowCreated="loadGridView_RowCreated" OnRowDataBound="loadGridView_RowDataBound"
                                             CssClass="table table-striped table-bordered" OnPreRender="gv_DocumentUpload_PreRender" AllowPaging="True" PageIndex="0" OnPageIndexChanging="loadGridView_PageIndexChanging">
                                             <Columns>
 
@@ -372,6 +372,7 @@
                                          
                                         </ItemTemplate>
                                     </asp:TemplateField>--%>
+                                                <asp:ButtonField ButtonType="Button" CommandName="ToggleActive" DataTextField="ToggleText" HeaderText="Action" />
                                                 <asp:BoundField DataField="CustomerCode" HeaderText="Customer Code" />
                                                 <asp:BoundField DataField="CustomerName" HeaderText="Customer Name" />
                                                 <asp:BoundField DataField="SalaesPersonName" HeaderText="Salaes Person Name" />
@@ -396,6 +397,8 @@
                                                 <asp:BoundField DataField="ApprovalStatus" HeaderText="Approval Status" />
                                                 <%--<asp:BoundField DataField="EmpMasterCode" HeaderText="Entry By" />--%>
                                                 <asp:BoundField DataField="EntryDate" HeaderText="Entry Date" />
+                                                <asp:BoundField DataField="UpdateByText" HeaderText="Update By" />
+                                                <asp:BoundField DataField="UpdateDateText" HeaderText="Update Date" />
                                                 <asp:BoundField DataField="StationTypeName" HeaderText="MIO Tour Type" Visible="False" />
                                                   <asp:BoundField DataField="Dept" HeaderText="Dept Tagging"  Visible="False"/>
 

@@ -459,45 +459,54 @@ insert into tblDCStoreFreeze (DCStoreFreezeId,StorageLocation,TotalQuantity,Prod
         public DataTable GetProductDcStore(string productCode, string comunitId)
         {
             DataTable aDataTableEmpInfo = new DataTable();
+            // One line per receive row with the same per-row balance the sales
+            // picker uses (InvoiceDAL.BatchWiseProductQty), so the B2BIssue written
+            // by UpdateDCStockQuantity references a row that actually holds stock.
+            // The old batch-level SUM + MIN(DCStoreId) issued against rows sales
+            // had already emptied, which is invisible to the sales picker.
             string query = @"
-        SELECT 
-            MIN(DS.DCStoreId)              AS DCStoreId,
+        SELECT
+            RCV.DCStoreId,
             P.ProductCode                  AS PCode,
             P.ProductName                  AS PName,
-            DS.BatchNo,
-            DS.ExpDate,
-            MIN(DS.ReceiveDate)            AS ReceiveDate,
+            RCV.BatchNo,
+            RCV.ExpDate,
+            RCV.ReceiveDate,
             ISNULL(UP.UnitPrice, 0)        AS UnitPrice,
             ISNULL(UP.VATAmountPerUnit, 0) AS VATAmountPerUnit,
             ISNULL(UP.VATPercentage, 0)    AS VATPercentage,
-            SUM(DS.StockQty)               AS StockQty
+            (CASE WHEN ISNULL(RCV.TotalQuantity, 0) > 0 THEN RCV.TotalQuantity ELSE RCV.StockQty END)
+                + ISNULL(ISS.TotalIssued, 0) AS StockQty
 
-        FROM dbo.tblDCStore AS DS
+        FROM dbo.tblDCStore AS RCV
 
-        LEFT JOIN dbo.tblProduct AS P 
-            ON DS.ProductCode = P.ProductCode
+        INNER JOIN dbo.tblCompanyUnit AS CU
+            ON RCV.ComUnitId = CU.ComUnitId
 
-        LEFT JOIN dbo.tblCompanyUnit AS CU 
-            ON DS.ComUnitId = CU.ComUnitId
+        LEFT JOIN dbo.tblProduct AS P
+            ON RCV.ProductCode = P.ProductCode
 
-        LEFT JOIN dbo.tblUnitPrice AS UP 
-            ON DS.ProductCode = UP.ProductCode
+        LEFT JOIN dbo.tblUnitPrice AS UP
+            ON RCV.ProductCode = UP.ProductCode
             AND UP.IsActive = 1
 
+        LEFT JOIN (
+            SELECT I.ReferenceDCStoreId, SUM(I.StockQty) AS TotalIssued
+            FROM dbo.tblDCStore AS I
+            INNER JOIN dbo.tblCompanyUnit AS C ON I.ComUnitId = C.ComUnitId
+            WHERE I.Trans_Type  = 'Issue'
+              AND I.ProductCode = @ProductCode
+              AND C.ComUnitCode = @ComUnitCode
+            GROUP BY I.ReferenceDCStoreId
+        ) AS ISS ON ISS.ReferenceDCStoreId = RCV.DCStoreId
+
         WHERE CU.ComUnitCode = @ComUnitCode
-          AND DS.ProductCode  = @ProductCode
-          AND DS.Trans_Type  IN ('Receive', 'Issue')
+          AND RCV.ProductCode = @ProductCode
+          AND RCV.Trans_Type  = 'Receive'
+          AND (CASE WHEN ISNULL(RCV.TotalQuantity, 0) > 0 THEN RCV.TotalQuantity ELSE RCV.StockQty END)
+                + ISNULL(ISS.TotalIssued, 0) > 0
 
-        GROUP BY 
-            P.ProductCode,
-            P.ProductName,
-            DS.BatchNo,
-            DS.ExpDate,
-            UP.UnitPrice,
-            UP.VATAmountPerUnit,
-            UP.VATPercentage
-
-        HAVING SUM(DS.StockQty) > 0";
+        ORDER BY RCV.ExpDate ASC, RCV.BatchNo ASC, RCV.DCStoreId ASC";
 
             aDataTableEmpInfo = SInventorySql.GetDataTable(query, new List<SqlParameter>
     {
@@ -561,14 +570,31 @@ insert into tblDCStoreFreeze (DCStoreFreezeId,StorageLocation,TotalQuantity,Prod
         FROM tblDCStore DS
         LEFT JOIN tblChalanDetail CD ON CD.ChalanDetailsId = @ChalanDetailsId
         LEFT JOIN tblChalanInfo CI ON CD.ChalanId = CI.ChalanId
-        WHERE DS.DCStoreId = @DCStoreId;";
+        WHERE DS.DCStoreId  = @DCStoreId
+          AND DS.Trans_Type = 'Receive'
+          -- Only issue what this receive row still holds (same balance the sales
+          -- picker uses). Without this, a B2BIssue lands on an already-sold row and
+          -- the batch goes negative while sales keeps seeing the other rows as full.
+          AND (CASE WHEN ISNULL(DS.TotalQuantity, 0) > 0 THEN DS.TotalQuantity ELSE DS.StockQty END)
+              + ISNULL((SELECT SUM(I.StockQty) FROM tblDCStore I
+                        WHERE I.ReferenceDCStoreId = DS.DCStoreId
+                          AND I.Trans_Type = 'Issue'
+                          AND I.ComUnitId  = DS.ComUnitId), 0)
+              >= @IssueQty;";
 
-            SInventorySql.Execute(updateQuery, new List<SqlParameter>
+            bool inserted = SInventorySql.Execute(updateQuery, new List<SqlParameter>
             {
                 new SqlParameter("@IssueQty", SInventorySql.DbValue(quantity)),
                 new SqlParameter("@DCStoreId", SInventorySql.DbValue(stockId == null ? null : stockId.Trim())),
                 new SqlParameter("@ChalanDetailsId", chalanDetailsId)
             });
+
+            // Zero rows = the guard rejected it. Throw so the caller's TransactionScope
+            // rolls the chalan back instead of leaving a chalan with no stock movement.
+            if (!inserted)
+            {
+                throw new Exception("Insufficient stock in DCStoreId " + stockId + " for transfer qty " + quantity);
+            }
         }
 
         public void UpdateDCStockQuantity(string stockId, string quantity)

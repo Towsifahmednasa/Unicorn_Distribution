@@ -166,6 +166,7 @@
     <Compile Include="PromoAlloc_DAO\PromoMIOTag.cs" />
     <Compile Include="SettingPanel_DAO\UserSettingPanelDao.cs" />
     <Compile Include="SInventory_Entities\AppSetupDAO.cs" />
+    <Compile Include="SInventory_Entities\InvoiceAdjustment.cs" />
     <Compile Include="SInventory_Entities\CentralStoreDao.cs" />
     <Compile Include="SInventory_Entities\ChalanDetail.cs" />
     <Compile Include="SInventory_Entities\ChalanInfo.cs" />

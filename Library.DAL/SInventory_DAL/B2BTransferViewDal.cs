@@ -24,6 +24,32 @@ namespace Library.DAL.SInventory_DAL
             return aCommonInternalDal.DataContainerDataTable(query, "SSIDB");
         }
 
+        public DataTable GetChalanPrintHeader(string chalanNo)
+        {
+            string query = @"SELECT ChalanNo,ChalanDate,TrackNo,DriverName,FromComUnitName,FromComUnitAddress,ToComUnitName,ToComUnitAddress,
+                             TotalValue,TotalVat,GrandTotal,IsDeliver
+                             FROM dbo.tblChalanInfo WHERE ChalanNo = @ChalanNo";
+            return SInventorySql.GetDataTable(query, new List<SqlParameter>
+            {
+                new SqlParameter("@ChalanNo", SInventorySql.DbValue(chalanNo))
+            });
+        }
+
+        public DataTable GetChalanPrintLines(string chalanNo)
+        {
+            string query = @"SELECT D.ProductCode, ISNULL(P.ProductName, D.ProductName) AS ProductName, D.BatchNo, DS.MfgDate, DS.ExpDate,
+                             D.Quantity, D.UnitPrice, D.Value, D.Vat, D.ValueWVat
+                             FROM dbo.tblChalanInfo C
+                             INNER JOIN dbo.tblChalanDetail D ON C.ChalanId = D.ChalanId
+                             LEFT JOIN dbo.tblDCStore DS ON D.DCStoreId = DS.DCStoreId
+                             LEFT JOIN dbo.tblProduct P ON D.ProductCode = P.ProductCode
+                             WHERE C.ChalanNo = @ChalanNo ORDER BY D.ChalanDetailsId";
+            return SInventorySql.GetDataTable(query, new List<SqlParameter>
+            {
+                new SqlParameter("@ChalanNo", SInventorySql.DbValue(chalanNo))
+            });
+        }
+
         public bool DeleteChallanMasterById(int chalanId)
         {
             string query = @"DELETE FROM dbo.tblChalanInfo WHERE ChalanId = @ChalanId";

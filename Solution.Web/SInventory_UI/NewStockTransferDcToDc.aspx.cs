@@ -206,12 +206,12 @@ public partial class SInventory_UI_NewStockTransferDcToDc : System.Web.UI.Page
                 aChalanInfo.GrandTotal = grandtotal;
 
                 int chalanId;
-                bool status = aChalanBll.SaveDataForChalanInfo(aChalanInfo, out chalanId);
-                DataTable dt = aChalanBll.LoadChalanById(chalanId.ToString());
-                if (dt.Rows.Count > 0)
+                bool status;
+                // Header, details and the B2BIssue stock rows commit together. A stock
+                // shortfall throws from ChalanDAL.UpdateDCStockQuantity and rolls all of it back.
+                using (var scope = new System.Transactions.TransactionScope())
                 {
-                    printChalanNoTextBox.Text = dt.Rows[0]["ChalanNo"].ToString();
-                }
+                status = aChalanBll.SaveDataForChalanInfo(aChalanInfo, out chalanId);
                 List<ChalanDetail> aChalanDetailList = new List<ChalanDetail>();
 
                 if (status == true)
@@ -247,13 +247,22 @@ public partial class SInventory_UI_NewStockTransferDcToDc : System.Web.UI.Page
                         };
                         aChalanDetailList.Add(aChalanDetail);
                     }
-                    if (aChalanBll.SaveDataForChalanDetail(aChalanDetailList))
-                    {
-                        showMessageBox("Data saved successfully!");
-                        Clear();
-                        Todate();
-                        ChalanId();
-                    }
+                    status = aChalanBll.SaveDataForChalanDetail(aChalanDetailList);
+                }
+                scope.Complete();
+                }
+
+                DataTable dt = aChalanBll.LoadChalanById(chalanId.ToString());
+                if (dt.Rows.Count > 0)
+                {
+                    printChalanNoTextBox.Text = dt.Rows[0]["ChalanNo"].ToString();
+                }
+                if (status)
+                {
+                    showMessageBox("Data saved successfully!");
+                    Clear();
+                    Todate();
+                    ChalanId();
                 }
             }
         }

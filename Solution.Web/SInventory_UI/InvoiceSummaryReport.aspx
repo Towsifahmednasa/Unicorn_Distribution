@@ -131,6 +131,7 @@
                                             <div class="d-flex flex-wrap justify-content-md-end justify-content-start gap-2 align-items-center">
                                                 <asp:Label ID="lblTotalReceivable" runat="server" CssClass="ssss btn bg-info text-dark" Text="Total Receivable: 0.00"></asp:Label>
                                                 <asp:Label ID="lblTotalPaid" runat="server" CssClass="ssss btn bg-info text-dark" Text="Total Paid: 0.00"></asp:Label>
+                                                <asp:Label ID="lblTotalAdjustment" runat="server" CssClass="ssss btn bg-info text-dark" Text="Total Adjustment: 0.00"></asp:Label>
                                                 <asp:Label ID="lblTotalDue" runat="server" CssClass="ssss btn bg-info text-dark" Text="Total Due: 0.00"></asp:Label>
                                                 <asp:LinkButton ID="btnExport" class="btn btn-sm text-white" Style="background-color: #1A7343; border-color: #1A7343;" runat="server" OnClick="btnExport_Click">
                                                     <i class="fa fa-file-excel-o" aria-hidden="true"></i>&nbsp; Export to Excel
@@ -159,6 +160,9 @@
                                                 <asp:BoundField DataField="Delivery Invoice Date" HeaderText="Delivery Date" HtmlEncode="false" DataFormatString="{0:dd-MMM-yyyy}" />
                                                 <asp:BoundField DataField="Receiveable Amount" HeaderText="Receivable Amount" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" />
                                                 <asp:BoundField DataField="Total Payment" HeaderText="Total Payment" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" />
+                                                <asp:BoundField DataField="VAT Amount" HeaderText="VAT" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" />
+                                                <asp:BoundField DataField="AIT Amount" HeaderText="AIT" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" />
+                                                <asp:BoundField DataField="Adjustment Amount" HeaderText="Adjustment (Bad Debt/Promo)" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" />
                                                 <asp:BoundField DataField="Last Payment Date" HeaderText="Last Payment Date" HtmlEncode="false" DataFormatString="{0:dd-MMM-yyyy}" />
                                                 <asp:BoundField DataField="Due Amount" HeaderText="Due Amount" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" />
                                                 

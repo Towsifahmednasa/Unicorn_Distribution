@@ -1,4 +1,4 @@
-<%@ Page Title="" Language="C#" MasterPageFile="~/MasterPages/NewMasterPage.master" AutoEventWireup="true" CodeFile="SalesCollectionReport.aspx.cs" Inherits="SInventory_UI_SalesCollectionReport" %>
+﻿<%@ Page Title="" Language="C#" MasterPageFile="~/MasterPages/NewMasterPage.master" AutoEventWireup="true" CodeFile="SalesCollectionReport.aspx.cs" Inherits="SInventory_UI_SalesCollectionReport" %>
 <%@ Register TagPrefix="cc1" Namespace="AjaxControlToolkit" Assembly="AjaxControlToolkit, Version=3.0.20820.28364, Culture=neutral, PublicKeyToken=28f01b0e84b6d53e" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="head" Runat="Server">
@@ -136,9 +136,12 @@
                                         <asp:BoundField DataField="BankAmount" HeaderText="Bank Amount" ItemStyle-HorizontalAlign="Right" DataFormatString="{0:N2}" />
                                         <asp:BoundField DataField="bKashAmount" HeaderText="bKash Amount" ItemStyle-HorizontalAlign="Right" DataFormatString="{0:N2}" />
                                         <asp:BoundField DataField="HandCash" HeaderText="Hand Cash" ItemStyle-HorizontalAlign="Right" DataFormatString="{0:N2}" />
+                                        <asp:BoundField DataField="VATAmount" HeaderText="VAT" ItemStyle-HorizontalAlign="Right" DataFormatString="{0:N2}" />
+                                        <asp:BoundField DataField="AITAmount" HeaderText="AIT" ItemStyle-HorizontalAlign="Right" DataFormatString="{0:N2}" />
                                         
                                         <asp:BoundField DataField="DeliveryAgent" HeaderText="Delivery Agent (DA)" />
                                         <asp:BoundField DataField="SalesPerson" HeaderText="Sales Person" />
+                                        <asp:BoundField DataField="DeliveryStatus" HeaderText="Delivery Status" />
                                     </Columns>
                                     <PagerStyle HorizontalAlign="Left" CssClass="GridPager" />
                                 </asp:GridView>

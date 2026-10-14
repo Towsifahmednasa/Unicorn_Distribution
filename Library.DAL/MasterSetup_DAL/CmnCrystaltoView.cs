@@ -585,14 +585,16 @@ SELECT
     ISNULL(custDtl.PaymentAmount, 0) AS PaidAmount,
     ISNULL(custDtl.Discount, 0) AS Discount,
     (ISNULL(custDtl.AIT, 0) + ISNULL(custDtl.VATAmount, 0)) AS AitVatAmount,
-    (CASE WHEN ISNULL(custDtl.BankAccId, 0) > 0 THEN 'Bank' WHEN ISNULL(custDtl.CashAccId, 0) > 0 THEN 'Cash' ELSE ISNULL(NULLIF(CPY.PayType, ''), 'Cash') END) AS paymenttype,
+    ISNULL(custDtl.AIT, 0) AS AITAmount,
+    (CASE WHEN ISNULL(custDtl.BankAccId, 0) > 0 AND ISNULL(custDtl.CashAccId, 0) > 0 THEN 'Bank + Cash' WHEN ISNULL(custDtl.BankAccId, 0) > 0 THEN 'Bank' WHEN ISNULL(custDtl.CashAccId, 0) > 0 THEN 'Cash' ELSE ISNULL(NULLIF(CPY.PayType, ''), 'Cash') END) AS paymenttype,
     ISNULL(EMP.EmpName, ISNULL(U.UserName, CPY.CreateBy)) AS UserName,
     ISNULL(da.Name, '') AS DAName,
     (CASE WHEN custDtl.CollectionBy IS NULL OR custDtl.CollectionBy = '' OR custDtl.CollectionBy = 'Select' THEN 'DIC' ELSE custDtl.CollectionBy END) AS CollectionBy,
     '' AS InvPayNo,
     CASE WHEN ISNULL(sndRTN.sndReturnTotalPrice, 0) > 0 THEN ISNULL(sndRTN.sndReturnTotalPrice, 0) ELSE tblinvDetls.PaymentTotalPrice END AS Inv_TP,
     CASE WHEN ISNULL(sndRTN.sndReturnTotalPriceVatAmount, 0) > 0 THEN ISNULL(sndRTN.sndReturnTotalPriceVatAmount, 0) ELSE tblinvDetls.PaymentTotalPriceVatAmount END AS Inv_Vat,
-    (ISNULL(custDtl.PaymentAmount, 0) + ISNULL(custDtl.Discount, 0) + ISNULL(custDtl.AIT, 0)) AS TotalPay,
+    (ISNULL(custDtl.PaymentAmount, 0) + ISNULL(custDtl.AIT, 0) + ISNULL(custDtl.VATAmount, 0)) AS TotalPay,
+    ISNULL(ADJ.AdjustmentAmount, 0) AS AdjustmentAmount,
     CASE WHEN (ISNULL(custDtl.PaymentAmount, 0) - ISNULL(tblinvDetls.PaymentTotalPriceVatAmount, 0)) > 0 THEN (ISNULL(custDtl.PaymentAmount, 0) - ISNULL(tblinvDetls.PaymentTotalPriceVatAmount, 0))
          ELSE ISNULL(custDtl.PaymentAmount, 0)
     END AS TP_Pay, 
@@ -646,7 +648,12 @@ LEFT JOIN (
     SELECT InvoiceId, SUM(sndReturnTotalPrice) AS sndReturnTotalPrice, SUM(sndReturnTotalPriceVatAmount) AS sndReturnTotalPriceVatAmount, SUM(sndReturnNetAmount) AS sndReturnNetAmount 
     FROM tblInvoiceDetailReturn WITH (NOLOCK) 
     GROUP BY InvoiceId
-) AS SndRTN ON I.InvoiceId = SndRTN.InvoiceId 
+) AS SndRTN ON I.InvoiceId = SndRTN.InvoiceId
+LEFT JOIN (
+    SELECT InvoiceId, SUM(TotalAdjustment) AS AdjustmentAmount
+    FROM tblInvoiceBadDebtsMaster WITH (NOLOCK)
+    GROUP BY InvoiceId
+) AS ADJ ON I.InvoiceId = ADJ.InvoiceId
 LEFT JOIN dbo.tblCompanyUnit CU WITH (NOLOCK) ON CU.ComUnitId = ISNULL(I.ComUnitId, mas.ComUnitId)
 LEFT JOIN dbo.tblEmpGeneralInfo DZSM WITH (NOLOCK) ON mas.RSMId = DZSM.EmpInfoId
 LEFT JOIN dbo.tblEmpGeneralInfo AM WITH (NOLOCK) ON mas.ASMId = AM.EmpInfoId
@@ -1897,8 +1904,8 @@ ORDER BY I.InvoiceNo, custDtl.CustPayDetailId";
         public DataTable GetInvoiceSummaryReportDAL(string fromDate, string toDate, int? comUnitId, string customerCode, string proformaNo, string deliveryNo)
         {
             List<SqlParameter> sqlParameters = new List<SqlParameter>();
-            sqlParameters.Add(new SqlParameter("@FromDate", fromDate));
-            sqlParameters.Add(new SqlParameter("@ToDate", toDate));
+            sqlParameters.Add(new SqlParameter("@FromDate", string.IsNullOrWhiteSpace(fromDate) ? DBNull.Value : (object)fromDate));
+            sqlParameters.Add(new SqlParameter("@ToDate", string.IsNullOrWhiteSpace(toDate) ? DBNull.Value : (object)toDate));
             sqlParameters.Add(new SqlParameter("@ComUnitId", (object)comUnitId ?? DBNull.Value));
             sqlParameters.Add(new SqlParameter("@CustomerCode", string.IsNullOrEmpty(customerCode) ? DBNull.Value : (object)customerCode));
             sqlParameters.Add(new SqlParameter("@ProformaNo", string.IsNullOrEmpty(proformaNo) ? DBNull.Value : (object)proformaNo));

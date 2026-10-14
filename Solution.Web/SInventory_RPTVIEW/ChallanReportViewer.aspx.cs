@@ -1,60 +1,66 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Data;
 using System.Linq;
-using System.Web;
-using System.Web.UI;
-using System.Web.UI.WebControls;
-using CrystalDecisions.CrystalReports.Engine;
 using Library.BLL.SInventory_BLL;
-using Library.CrystalReports.SInventory_RPT;
 
 public partial class SInventory_RPTVIEW_ChallanReportViewer : System.Web.UI.Page
 {
-    ReportDocument rptdoc = new ReportDocument();
     StockTransportOrderReportBLL aOrderReportBll = new StockTransportOrderReportBLL();
-    protected void Page_Init(object sender, EventArgs e)
+
+    protected void Page_Load(object sender, EventArgs e)
     {
+        if (IsPostBack) return;
+
         string reqId = Request.QueryString["reqId"];
-        DataTable mainDataTable = aOrderReportBll.StockTransportOrderReportMainDataBLL(reqId).Copy();
-        DataTable detailDataTable = aOrderReportBll.StockTransportOrderReportDetailDataBLL(reqId).Copy();
-        DataTable companyInfoDataTable = aOrderReportBll.CompanyInfoBLL().Copy();
-        rptStockTransfarOrder aOrderReport = new rptStockTransfarOrder();
-        DataSet Ds = new DataSet();
+        DataTable main = aOrderReportBll.StockTransportOrderReportMainDataBLL(reqId);
 
-        mainDataTable.TableName = "mainDataTable";
-        detailDataTable.TableName = "detailDataTable";
-        companyInfoDataTable.TableName = "companyInfoDataTable";
-        Ds.Tables.Add(mainDataTable);
-        Ds.Tables.Add(detailDataTable);
-        Ds.Tables.Add(companyInfoDataTable);
+        if (main.Rows.Count == 0)
+        {
+            pnlReport.Visible = false;
+            lblMessage.Visible = true;
+            lblMessage.Text = "No Data Found!!";
+            return;
+        }
 
-        //aOrderReport.SetDataSource(Ds);
-        //crvStockTransReport.ReportSource = aOrderReport;
+        DataRow m = main.Rows[0];
+        DataTable lines = aOrderReportBll.StockTransportOrderReportDetailDataBLL(reqId);
+        DataTable company = aOrderReportBll.CompanyInfoBLL();
 
-        rptdoc.Load(ReportPath("crpChallan.rpt"));
-        rptdoc.SetDataSource(Ds);
-        crvStockTransReport.ReportSource = rptdoc;
-        crvStockTransReport.DataBind();
+        if (company.Rows.Count > 0)
+        {
+            litCompanyName.Text = Server.HtmlEncode(company.Rows[0]["CompanyName"].ToString());
+            litCompanyAddress.Text = Server.HtmlEncode(company.Rows[0]["Address"].ToString());
+        }
+
+        litIssueOffice.Text = Server.HtmlEncode(m["WearhouseName"].ToString());
+        litIssueAddress.Text = Server.HtmlEncode(m["WHAddress"].ToString());
+        litDestination.Text = Server.HtmlEncode(m["ComUnitName"].ToString());
+        litDestAddress.Text = Server.HtmlEncode(m["CUAddress"].ToString());
+        litChalanNo.Text = Server.HtmlEncode(m["IssueChalanNo"].ToString());
+        litChalanDate.Text = Date(m["IssuChalanDate"]);
+        litPrintDate.Text = DateTime.Now.ToString("dd-MMM-yyyy");
+
+        string truck = (m["TruckNo"].ToString() + " " + m["DriverName"].ToString()).Trim();
+        trTruck.Visible = truck != "";
+        litTruck.Text = Server.HtmlEncode(truck);
+
+        litTotalQty.Text = Sum(lines, "Quantity").ToString("#,##0.##");
+        litTotalPrice.Text = Sum(lines, "PriceAmount").ToString("#,##0.00");
+        litTotalVat.Text = Sum(lines, "VATAmount").ToString("#,##0.00");
+        litGrandTotal.Text = Sum(lines, "TotalPriceAmount").ToString("#,##0.00");
+
+        rptLines.DataSource = lines;
+        rptLines.DataBind();
     }
-    protected void closeButton_Click(object sender, EventArgs e)
+
+    private static decimal Sum(DataTable t, string col)
     {
-        ScriptManager.RegisterStartupScript(this, typeof(string), "Close", "window.close()", true);
+        return t.AsEnumerable().Sum(r => r.IsNull(col) ? 0m : Convert.ToDecimal(r[col]));
     }
-    private string ReportPath(string rptName)
+
+    protected static string Date(object v)
     {
-        return Convert.ToString(Server.MapPath("~\\Reports\\CrystalReports\\" + rptName));
-    }
-    protected void crvStockTransReport_Disposed(object sender, EventArgs e)
-    {
-        rptdoc.Close();
-        rptdoc.Dispose();
-        crvStockTransReport.Dispose();
-    }
-    protected void crvStockTransReport_Unload(object sender, EventArgs e)
-    {
-        rptdoc.Close();
-        rptdoc.Dispose();
-        crvStockTransReport.Dispose();
+        DateTime d;
+        return DateTime.TryParse(Convert.ToString(v), out d) ? d.ToString("dd-MMM-yyyy") : "";
     }
 }

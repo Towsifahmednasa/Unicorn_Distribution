@@ -312,6 +312,19 @@ public partial class MasterSetup_UI_CustomerView : System.Web.UI.Page
         {
             using (DataTable aDataTable = _DAL.GetCustomerList(parm))
             {
+                aDataTable.Columns.Add("ToggleText", typeof(string), "IIF(ISNULL(IsActive, false), 'Deactivate', 'Activate')");
+                aDataTable.Columns.Add("UpdateByText", typeof(string));
+                aDataTable.Columns.Add("UpdateDateText", typeof(string));
+                var userNames = _DAL.GetUserNames().AsEnumerable().ToDictionary(r => r.Field<string>("UserId"), r => r.Field<string>("Name"));
+                foreach (DataRow r in aDataTable.Rows)
+                {
+                    // Never-updated rows stay blank.
+                    if (r["UpdateDate"] == DBNull.Value) continue;
+                    string by = Convert.ToString(r["UpdateBy"]);
+                    string name;
+                    r["UpdateByText"] = userNames.TryGetValue(by, out name) ? name : by;
+                    r["UpdateDateText"] = Convert.ToDateTime(r["UpdateDate"]).ToString("dd MMM yyyy hh:mm tt");
+                }
                 loadGridView.DataSource = aDataTable;
                 loadGridView.DataBind();
                 lblCount.Text = "Total : " + aDataTable.Rows.Count.ToString();
@@ -346,7 +359,7 @@ public partial class MasterSetup_UI_CustomerView : System.Web.UI.Page
                     {
                         EmpCetegoryAddImageButton.Visible = Convert.ToBoolean(dtuserpermission.Rows[0]["RAdd"].ToString());
                         loadGridView.Columns[loadGridView.Columns.Count - 1].Visible =
-                            Convert.ToBoolean(dtuserpermission.Rows[0]["REdit"].ToString());
+                            loadGridView.Columns[0].Visible = Convert.ToBoolean(dtuserpermission.Rows[0]["REdit"].ToString());
 
 
                     }
@@ -422,9 +435,38 @@ public partial class MasterSetup_UI_CustomerView : System.Web.UI.Page
         return true;
     }
 
+    // Action button is column 0.
+    protected void loadGridView_RowCreated(object sender, GridViewRowEventArgs e)
+    {
+        if (e.Row.RowType == DataControlRowType.DataRow && e.Row.Cells[0].Controls.Count > 0)
+            ((WebControl)e.Row.Cells[0].Controls[0]).Attributes["onclick"] = "if(!confirm('Change Active/Inactive status of this record?')) return false;";
+    }
+
+    // Inactive rows (button says "Activate") get a red button.
+    protected void loadGridView_RowDataBound(object sender, GridViewRowEventArgs e)
+    {
+        if (e.Row.RowType == DataControlRowType.DataRow && e.Row.Cells[0].Controls.Count > 0)
+        {
+            var btn = (Button)e.Row.Cells[0].Controls[0];
+            btn.CssClass = btn.Text == "Activate" ? "btn btn-sm btn-danger" : "btn btn-sm btn-outline-secondary";
+        }
+    }
+
     protected void loadGridView_RowCommand(object sender, GridViewCommandEventArgs e)
     {
-        if (e.CommandName == "EditData")
+        if (e.CommandName == "ToggleActive")
+        {
+            int idx = Convert.ToInt32(e.CommandArgument);
+            string code = Convert.ToString(loadGridView.DataKeys[idx]["CustomerCode"]);
+            bool activate = ((Button)loadGridView.Rows[idx].Cells[0].Controls[0]).Text == "Activate";
+            if (code != "")
+            {
+                _DAL.SetActiveByCode(code, activate, Convert.ToString(Session["UserId"]));
+                ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "alert('" + code + (activate ? " activated." : " deactivated.") + "');", true);
+            }
+            LoadData(Parm());
+        }
+        else if (e.CommandName == "EditData")
         {
 
             var datKey = loadGridView.DataKeys[0];

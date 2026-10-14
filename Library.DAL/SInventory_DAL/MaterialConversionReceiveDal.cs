@@ -39,15 +39,13 @@ namespace Library.DAL.SInventory_DAL
                 0 AS Vat,
                 CAST(SUM(ABS(ISNULL(BS.Trans_Qty, CM.FinalOutputQuantity))) AS INT) AS FinalOutputQuantityInt,
                 CAST(ROUND(SUM(ABS(ISNULL(BS.Trans_Qty, CM.FinalOutputQuantity))) * CM.CostPerUnit, 2) AS DECIMAL(18,2)) AS TotalCostOfThisBatch,
-                MAP.RawMaterialId, 
-                BS.Batch_No, 
+                BS.Batch_No,
                 BS.Mfg_Date, 
                 BS.Exp_Date
             FROM CSTL_ERPDB_Unicorn..tbl_MC_MaterialConversionMaster AS CM
             LEFT JOIN CSTL_ERPDB_Unicorn..tbl_MC_ProductionUnit AS PUNT ON CM.ProductionUnitId = PUNT.ProductionUnitId
             INNER JOIN CSTL_ERPDB_Unicorn..tbl_MC_RecipeMaster AS RCM ON CM.RecipeSetupMasterId = RCM.RecipeSetupMasterId
             LEFT JOIN CSTL_ERPDB_Unicorn..tblCompanyInfo AS CI ON CM.BusinessUnitId = CI.CompanyId
-            INNER JOIN tbl_MC_ProductRawMaterialDetails AS MAP ON CM.FGItemId = MAP.ProductId
             INNER JOIN CSTL_ERPDB_Unicorn..tbl_MC_MaterialConversionDetails AS CD ON CM.MaterialConversionMasterId = CD.MaterialConversionMasterId
             INNER JOIN CSTL_ERPDB_Unicorn..tbl_INV_BatchWiseStock AS BS ON CD.MaterialConversionDetailId = BS.MaterialConversionDetailId
             LEFT JOIN (SELECT DISTINCT WD.MaterialConversionDetailId FROM tblWHStockInMaster AS WM
@@ -57,7 +55,8 @@ namespace Library.DAL.SInventory_DAL
                 ON CD.MaterialConversionDetailId = CS.MaterialConversionDetailId
             LEFT JOIN tblProduct AS FG ON CM.FGItemId = FG.ProductId
             LEFT JOIN tblPackSize AS PKS ON FG.PackSizeId = PKS.PackSizeId
-            WHERE CS.MaterialConversionDetailId IS NULL AND ISNULL(CM.FinalOutputQuantity,0) > 0  AND CM.MaterialConversionMasterId IS NOT NULL "
+            WHERE CS.MaterialConversionDetailId IS NULL AND ISNULL(CM.FinalOutputQuantity,0) > 0  AND CM.MaterialConversionMasterId IS NOT NULL
+            AND EXISTS (SELECT 1 FROM tbl_MC_ProductRawMaterialDetails AS MAP WHERE MAP.ProductId = CM.FGItemId) "
             + param + @"
             GROUP BY 
                 CD.MaterialConversionDetailId,
@@ -69,7 +68,6 @@ namespace Library.DAL.SInventory_DAL
                 FG.ProductName,
                 FG.PackSize,
                 CM.CostPerUnit,
-                MAP.RawMaterialId,
                 BS.Batch_No,
                 BS.Mfg_Date,
                 BS.Exp_Date
@@ -92,15 +90,13 @@ namespace Library.DAL.SInventory_DAL
                 0 AS Vat,
                 CAST(SUM(ABS(ISNULL(BS.Trans_Qty, CM.FinalOutputQuantity))) AS INT) AS FinalOutputQuantityInt,
                 CAST(ROUND(SUM(ABS(ISNULL(BS.Trans_Qty, CM.FinalOutputQuantity))) * CM.CostPerUnit, 2) AS DECIMAL(18,2)) AS TotalCostOfThisBatch,
-                MAP.RawMaterialId, 
-                BS.Batch_No, 
+                BS.Batch_No,
                 BS.Mfg_Date, 
                 BS.Exp_Date
             FROM CSTL_ERPDB_Unicorn..tbl_MC_MaterialConversionMaster AS CM
             LEFT JOIN CSTL_ERPDB_Unicorn..tbl_MC_ProductionUnit AS PUNT ON CM.ProductionUnitId = PUNT.ProductionUnitId
             INNER JOIN CSTL_ERPDB_Unicorn..tbl_MC_RecipeMaster AS RCM ON CM.RecipeSetupMasterId = RCM.RecipeSetupMasterId
             LEFT JOIN CSTL_ERPDB_Unicorn..tblCompanyInfo AS CI ON CM.BusinessUnitId = CI.CompanyId
-            INNER JOIN tbl_MC_ProductRawMaterialDetails AS MAP ON CM.FGItemId = MAP.ProductId
             INNER JOIN CSTL_ERPDB_Unicorn..tbl_MC_MaterialConversionDetails AS CD ON CM.MaterialConversionMasterId = CD.MaterialConversionMasterId
             INNER JOIN CSTL_ERPDB_Unicorn..tbl_INV_BatchWiseStock AS BS ON CD.MaterialConversionDetailId = BS.MaterialConversionDetailId
             LEFT JOIN (SELECT DISTINCT WD.MaterialConversionDetailId FROM tblWHStockInMaster AS WM
@@ -111,7 +107,8 @@ namespace Library.DAL.SInventory_DAL
                 ON CD.MaterialConversionDetailId = CS.MaterialConversionDetailId
             LEFT JOIN tblProduct AS FG ON CM.FGItemId = FG.ProductId
             LEFT JOIN tblPackSize AS PKS ON FG.PackSizeId = PKS.PackSizeId
-            WHERE CS.MaterialConversionDetailId IS NULL AND ISNULL(CM.FinalOutputQuantity,0) > 0  AND CM.MaterialConversionMasterId IS NOT NULL "
+            WHERE CS.MaterialConversionDetailId IS NULL AND ISNULL(CM.FinalOutputQuantity,0) > 0  AND CM.MaterialConversionMasterId IS NOT NULL
+            AND EXISTS (SELECT 1 FROM tbl_MC_ProductRawMaterialDetails AS MAP WHERE MAP.ProductId = CM.FGItemId) "
             + param + @"
             GROUP BY 
                 CD.MaterialConversionDetailId,
@@ -123,7 +120,6 @@ namespace Library.DAL.SInventory_DAL
                 FG.ProductName,
                 FG.PackSize,
                 CM.CostPerUnit,
-                MAP.RawMaterialId,
                 BS.Batch_No,
                 BS.Mfg_Date,
                 BS.Exp_Date

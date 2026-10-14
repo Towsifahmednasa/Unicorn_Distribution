@@ -31,7 +31,7 @@ public partial class SInventory_UI_InvoiceDataEditor : System.Web.UI.Page
     private static readonly string[] VchMasterEditable = new string[] { "Narration", "TotalAmount", "TotalAmountBDT" };
     private static readonly string[] InvoiceEditable = new string[]
     {
-        "TpTotal", "TpGrandTotal", "DeliveryTpTotal", "DeliveryTpGrandTotal", "PaymentAmount", SalesPerson
+        "TpTotal", "TpGrandTotal", "DeliveryTpTotal", "DeliveryTpGrandTotal", SalesPerson
     };
     private static readonly string[] InvoiceDetailEditable = new string[]
     {
@@ -90,7 +90,7 @@ public partial class SInventory_UI_InvoiceDataEditor : System.Web.UI.Page
         "loadingsummaryFinalStatus", "loadingsummaryFinalStatusUpdateBy", "loadingsummaryFinalStatusUpdateDatetime",
         "PaymentTpTotal", "PaymentTpDiscount", "PaymentTpVat", "PaymentTpGrandTotal", "PaymentInvoiceStatus",
         "PaymentInvoiceNo", "PaymentBy", "PaymentDate", "FinalPaymentNo", "FinalPaymentBy", "FinalPaymentDate",
-        "ReceivableAmount", "UpdateDateDate", "IS_Date"
+        "ReceivableAmount", "UpdateDateDate", "IS_Date", "PaymentAmount", "PaymentStatus"
     };
 
     private static readonly string[] InvoiceDetailHide = new string[]

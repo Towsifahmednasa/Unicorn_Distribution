@@ -234,6 +234,7 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
                 int customerMasterId = 0;
                 int.TryParse(aDataTable.Rows[0]["CustomerMasterId"].ToString(), out customerMasterId);
                 hdCustomerMasterId.Value = customerMasterId.ToString();
+                LoadCustomerInvoices(customerMasterId);
                 custNameTextBox.Text = aDataTable.Rows[0]["CustomerName"].ToString();
                 custAddressTextBox.Text = aDataTable.Rows[0]["Address"].ToString();
                 //districtNameTextBox.Text = aDataTable.Rows[0]["DistrictName"].ToString();
@@ -252,6 +253,15 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
             {
             }
         }
+    }
+
+    private void LoadCustomerInvoices(int customerMasterId)
+    {
+        ddlInvoiceNo.DataSource = aInvoiceBll.GetCustomerInvoices(customerMasterId);
+        ddlInvoiceNo.DataTextField = "InvoiceNo";
+        ddlInvoiceNo.DataValueField = "InvoiceId";
+        ddlInvoiceNo.DataBind();
+        ddlInvoiceNo.Items.Insert(0, new ListItem("-- Select Invoice --", "0"));
     }
 
     protected void custCodeTextBox_TextChanged(object sender, EventArgs e)
@@ -291,6 +301,12 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
         {
             ShowMessageBox("Please Input Order Number!!");
             orderNoTextBox.Focus();
+            return false;
+        }
+        if (ddlInvoiceNo.SelectedValue == "" || ddlInvoiceNo.SelectedValue == "0")
+        {
+            ShowMessageBox("Please Select Invoice No!!");
+            ddlInvoiceNo.Focus();
             return false;
         }
         if (orderDateTextBox.Text == "")
@@ -684,7 +700,9 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
         aInvoice.NetReturnAmount = netVal;
         aInvoice.UserId = Convert.ToInt32(Session["UserId"].ToString());
         aInvoice.ComUnitCode = ComUnitCode;
-        aInvoice.InvoiceId = Convert.ToInt32(0);
+        int selectedInvoiceId = 0;
+        int.TryParse(ddlInvoiceNo.SelectedValue, out selectedInvoiceId);
+        aInvoice.InvoiceId = selectedInvoiceId;
         aInvoice.OrderId = Convert.ToInt32(0);
         aInvoice.OrderNo = "No order";
         aInvoice.Remarks = orderNoTextBox.Text.Trim();
@@ -2771,6 +2789,7 @@ public partial class SInventory_UI_SalesReturn : System.Web.UI.Page
         custNameTextBox.Text = string.Empty;
         custAddressTextBox.Text = string.Empty;
         lblMioInfo.Text = string.Empty;
+        ddlInvoiceNo.Items.Clear();
         districtNameTextBox.Text = string.Empty;
         areaNameTextBox.Text = string.Empty;
         comUnitNameTextBox.Text = string.Empty;

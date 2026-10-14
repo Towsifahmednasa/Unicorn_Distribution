@@ -32,6 +32,14 @@ public partial class SInventory_RPTVIEW_InvoiceReportViewer : System.Web.UI.Page
             string invoiceIds = (Session["InvoiceIds"].ToString());
 
             DataTable mainDataTable = aInvoiceBll.MoneyReceiptReportBLL(invoiceIds).Copy();
+
+            if (mainDataTable.Rows.Count == 0)
+            {
+                Response.Write("<div style='padding:30px; font-family:Arial; font-size:15px; color:#dc2626; font-weight:bold;'>No receipt data found for this invoice.</div>");
+                Response.End();
+                return;
+            }
+
             DataTable companyInfoDataTable = aOrderReportBll.CompanyInfoBLL().Copy();
 
             //rptInvoiceForCustomer aRptInvoiceForCustomer = new rptInvoiceForCustomer();
@@ -58,12 +66,16 @@ public partial class SInventory_RPTVIEW_InvoiceReportViewer : System.Web.UI.Page
             crvInvoiceReport.ReportSource = rptdoc;
             crvInvoiceReport.DataBind();
         }
+        catch (System.Threading.ThreadAbortException)
+        {
+            // Expected for Response.End()
+        }
         catch (Exception ex)
         {
 
             throw ex;
         }
-       
+
     }
     private void ShowReport(DataSet dsDataSet, string reportName)
     {

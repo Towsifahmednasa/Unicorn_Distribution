@@ -292,6 +292,15 @@
                                         </div>
                                     </div>
 
+                                    <div class="row mb-2 align-items-center">
+                                        <label class="col-sm-4 col-form-label font-weight-bold text-secondary text-sm-end">
+                                            Invoice No <span class="text-danger">*</span> :
+                                        </label>
+                                        <div class="col-sm-8">
+                                            <asp:DropDownList ID="ddlInvoiceNo" runat="server" CssClass="form-control form-control-sm"></asp:DropDownList>
+                                        </div>
+                                    </div>
+
                                     <!-- Hidden fields preserved for code-behind compatibility -->
                                     <div class="row" runat="server" visible="false">
                                         <asp:TextBox ID="districtNameTextBox" runat="server" ReadOnly="True"></asp:TextBox>

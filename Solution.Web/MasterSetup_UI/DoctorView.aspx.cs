@@ -186,7 +186,7 @@ public partial class MasterSetup_UI_DoctorView : System.Web.UI.Page
                     {
                         EmpCetegoryAddImageButton.Visible = Convert.ToBoolean(dtuserpermission.Rows[0]["RAdd"].ToString());
                         loadGridView.Columns[loadGridView.Columns.Count - 1].Visible =
-                            Convert.ToBoolean(dtuserpermission.Rows[0]["REdit"].ToString());
+                            loadGridView.Columns[1].Visible = Convert.ToBoolean(dtuserpermission.Rows[0]["REdit"].ToString());
 
 
                     }
@@ -255,7 +255,7 @@ public partial class MasterSetup_UI_DoctorView : System.Web.UI.Page
              List<int> visibleColIndices = new List<int>();
              for (int colIndex = 0; colIndex < loadGridView.Columns.Count; colIndex++)
              {
-                 if (loadGridView.Columns[colIndex].Visible && loadGridView.Columns[colIndex].HeaderText != "Edit")
+                 if (loadGridView.Columns[colIndex].Visible && loadGridView.Columns[colIndex].HeaderText != "Edit" && loadGridView.Columns[colIndex].HeaderText != "Action")
                  {
                      visibleColIndices.Add(colIndex);
                      sb.Append(HttpUtility.HtmlDecode(loadGridView.HeaderRow.Cells[colIndex].Text) + ',');
@@ -304,9 +304,38 @@ public partial class MasterSetup_UI_DoctorView : System.Web.UI.Page
         loadGridView.PageIndex = e.NewPageIndex;
         this.LoadData(Parm());
     }
+    // Action button is column 1 (after SL).
+    protected void loadGridView_RowCreated(object sender, GridViewRowEventArgs e)
+    {
+        if (e.Row.RowType == DataControlRowType.DataRow && e.Row.Cells[1].Controls.Count > 0)
+            ((WebControl)e.Row.Cells[1].Controls[0]).Attributes["onclick"] = "if(!confirm('Change Active/Inactive status of this record?')) return false;";
+    }
+
+    // Inactive rows (button says "Activate") get a red button.
+    protected void loadGridView_RowDataBound(object sender, GridViewRowEventArgs e)
+    {
+        if (e.Row.RowType == DataControlRowType.DataRow && e.Row.Cells[1].Controls.Count > 0)
+        {
+            var btn = (Button)e.Row.Cells[1].Controls[0];
+            btn.CssClass = btn.Text == "Activate" ? "btn btn-sm btn-danger" : "btn btn-sm btn-outline-secondary";
+        }
+    }
+
     protected void loadGridView_RowCommand(object sender, GridViewCommandEventArgs e)
     {
-        if (e.CommandName == "EditData")
+        if (e.CommandName == "ToggleActive")
+        {
+            int idx = Convert.ToInt32(e.CommandArgument);
+            string code = Convert.ToString(loadGridView.DataKeys[idx]["DoctorCode"]);
+            bool activate = ((Button)loadGridView.Rows[idx].Cells[1].Controls[0]).Text == "Activate";
+            if (code != "")
+            {
+                new CustomerInfoDAL().SetActiveByCode(code, activate, Convert.ToString(Session["UserId"]));
+                ScriptManager.RegisterStartupScript(this, GetType(), "Popup", "alert('" + code + (activate ? " activated." : " deactivated.") + "');", true);
+            }
+            LoadData(Parm());
+        }
+        else if (e.CommandName == "EditData")
         {
 
             var datKey = loadGridView.DataKeys[0];
@@ -347,6 +376,7 @@ public partial class MasterSetup_UI_DoctorView : System.Web.UI.Page
         {
             DataTable aDataTable = _DAL.GetDoctorList(parm);
             aDataTable.Columns.Add("IsActiveText", typeof(string), "IIF(ISNULL(IsActive, false), 'Yes', 'No')");
+            aDataTable.Columns.Add("ToggleText", typeof(string), "IIF(ISNULL(IsActive, false), 'Deactivate', 'Activate')");
             aDataTable.Columns.Add("EntryByText", typeof(string), "IIF(ISNULL(UserEntryBy, '') IN ('', 'N/A'), 'System Admin', UserEntryBy)");
             // Never-updated rows (no UpdateDate) stay blank instead of showing System Admin.
             aDataTable.Columns.Add("UpdateByText", typeof(string), "IIF(UpdateDate IS NULL, '', IIF(ISNULL(UserUpdateBy, '') IN ('', 'N/A'), 'System Admin', UserUpdateBy))");

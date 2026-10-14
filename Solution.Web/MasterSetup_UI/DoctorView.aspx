@@ -76,10 +76,10 @@
             font-weight: bold;
         }
 
-        /* Freeze first 3 columns (SL, Doctor Code, Doctor Name) on horizontal scroll.
-           Widths are fixed so the left offsets line up: 60 + 120 = 180. */
-        [id$="loadGridView"] > thead > tr > th:nth-child(-n+3),
-        [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(-n+3) {
+        /* Freeze first 4 columns (SL, Action, Doctor Code, Doctor Name) on horizontal scroll.
+           Widths are fixed so the left offsets line up: 60 + 110 + 120 = 290. */
+        [id$="loadGridView"] > thead > tr > th:nth-child(-n+4),
+        [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(-n+4) {
             position: sticky;
             z-index: 1;
             background-color: #fff;
@@ -95,13 +95,20 @@
         [id$="loadGridView"] > thead > tr > th:nth-child(2),
         [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(2) {
             left: 60px;
-            min-width: 120px;
-            max-width: 120px;
+            min-width: 110px;
+            max-width: 110px;
         }
 
         [id$="loadGridView"] > thead > tr > th:nth-child(3),
         [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(3) {
-            left: 180px;
+            left: 170px;
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        [id$="loadGridView"] > thead > tr > th:nth-child(4),
+        [id$="loadGridView"] > tbody > tr:not(.GridPager) > td:nth-child(4) {
+            left: 290px;
             min-width: 220px;
             max-width: 220px;
             white-space: normal;
@@ -433,13 +440,14 @@
 
 
                                         <asp:GridView ID="loadGridView" runat="server" AutoGenerateColumns="False"
-                                            DataKeyNames="DoctorId" OnRowCommand="loadGridView_RowCommand"
+                                            DataKeyNames="DoctorId,DoctorCode" OnRowCommand="loadGridView_RowCommand" OnRowCreated="loadGridView_RowCreated" OnRowDataBound="loadGridView_RowDataBound"
                                             CssClass="table table-striped table-bordered" OnPreRender="gv_DocumentUpload_PreRender" AllowPaging="False">
                                             <Columns>
 
                                                 <%-- No TemplateFields in this grid: the dynamic detail columns make the Columns collection
                                                      reload from ViewState on postback, and TemplateFields come back without their template. --%>
                                                 <asp:BoundField DataField="RowSL" HeaderText="SL" />
+                                                <asp:ButtonField ButtonType="Button" CommandName="ToggleActive" DataTextField="ToggleText" HeaderText="Action" />
                                                 <asp:BoundField DataField="DoctorCode" HeaderText="Doctor Code" />
                                                 <asp:BoundField DataField="DoctorName" HeaderText="Doctor Name" />
                                                 <asp:BoundField DataField="StreetAddress" Visible="False" HeaderText="Street Address" />

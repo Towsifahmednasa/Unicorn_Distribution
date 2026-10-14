@@ -778,7 +778,9 @@
                                     <asp:BoundField DataField="InvoiceAmount" HeaderText="Invoice Amount" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
                                     <asp:BoundField DataField="PaidAmount" HeaderText="Paid Amount" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
                                     <asp:BoundField DataField="Discount" HeaderText="Discount" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
-                                    <asp:BoundField DataField="AitVatAmount" HeaderText="AIT + VAT" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
+                                    <asp:BoundField DataField="PayVATAmount" HeaderText="VAT" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
+                                    <asp:BoundField DataField="AITAmount" HeaderText="AIT" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
+                                    <asp:BoundField DataField="AdjustmentAmount" HeaderText="Adjustment (Bad Debt/Promo)" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
                                     <asp:BoundField DataField="paymenttype" HeaderText="Payment Mode" />
                                     <asp:BoundField DataField="UserName" HeaderText="User Name" />
                                 </Columns>
@@ -819,7 +821,7 @@
                                     <asp:BoundField DataField="CustomerName" HeaderText="Customer Name" />
                                     <asp:BoundField DataField="FinalPaymentNo" HeaderText="Payment Ref. No." ItemStyle-HorizontalAlign="Center" HeaderStyle-HorizontalAlign="Center" />
                                     <asp:BoundField DataField="CashBankAccount" HeaderText="Cash / Bank" />
-                                    <asp:BoundField DataField="PaidAmount" HeaderText="Collection Amount" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
+                                    <asp:BoundField DataField="TotalPay" HeaderText="Collection Amount" DataFormatString="{0:N2}" ItemStyle-HorizontalAlign="Right" HeaderStyle-HorizontalAlign="Right" FooterStyle-HorizontalAlign="Right" />
                                     <asp:BoundField DataField="paymenttype" HeaderText="Payment Mode" ItemStyle-HorizontalAlign="Center" HeaderStyle-HorizontalAlign="Center" />
                                     <asp:BoundField DataField="UserName" HeaderText="User Name" />
                                 </Columns>

@@ -402,6 +402,132 @@ namespace Library.DAL.MasterSetup_DAL
         }
 
 
+        // ---- Bulk sales-person reassign (Customer / Doctor) ----
+        private static void BulkTable(bool isDoctor, out string table, out string key, out string code, out string name, out string where)
+        {
+            table = isDoctor ? "tblDoctorMaster" : "tblCustMaster";
+            key = isDoctor ? "DoctorId" : "CustomerMasterId";
+            code = isDoctor ? "DoctorCode" : "CustomerCode";
+            name = isDoctor ? "DoctorName" : "CustomerName";
+            where = isDoctor ? "m.IsActive=1 AND m.ApprovalStatus='2'" : "m.IsActive=1";
+        }
+
+        public DataTable GetSalesPersonsForReassign()
+        {
+            try
+            {
+                accessManager.SqlConnectionOpen(DataBase.SalesDB);
+                return accessManager.GetDataTableByText(
+                    "SELECT EmpInfoId, EmpMasterCode + ' : ' + EmpName AS EmpName FROM tblEmpGeneralInfo WITH (NOLOCK) ORDER BY EmpName", null);
+            }
+            finally { accessManager.SqlConnectionClose(); }
+        }
+
+        // Customers/doctors whose comma-separated TaggedSalesPersonIds contains any of fromSpIds.
+        public DataTable GetBulkReassignList(bool isDoctor, List<int> fromSpIds)
+        {
+            string table, key, code, name, where;
+            BulkTable(isDoctor, out table, out key, out code, out name, out where);
+
+            var ps = new List<SqlParameter>();
+            var conds = new List<string>();
+            for (int i = 0; i < fromSpIds.Count; i++)
+            {
+                ps.Add(new SqlParameter("@sp" + i, fromSpIds[i]));
+                conds.Add("',' + REPLACE(ISNULL(m.TaggedSalesPersonIds,''),' ','') + ',' LIKE '%,' + CAST(@sp" + i + " AS varchar(20)) + ',%'");
+            }
+
+            string sql = "SELECT m." + key + " AS Id, m." + code + " AS Code, m." + name + " AS Name, m.TaggedSalesPersonIds AS TaggedIds, m.TaggedSalesPersonCodes AS TaggedSp " +
+                         "FROM " + table + " m WITH (NOLOCK) " +
+                         "WHERE " + where + " AND (" + string.Join(" OR ", conds) + ") ORDER BY m." + code;
+            try
+            {
+                accessManager.SqlConnectionOpen(DataBase.SalesDB);
+                return accessManager.GetDataTableByText(sql, ps);
+            }
+            finally { accessManager.SqlConnectionClose(); }
+        }
+
+        // Removes fromSpIds from each selected row's TaggedSalesPersonIds (comma list) and adds toSpId. All-or-nothing.
+        public int BulkReassignSalesPerson(bool isDoctor, List<int> ids, List<int> fromSpIds, int toSpId)
+        {
+            string table, key, code, name, where;
+            BulkTable(isDoctor, out table, out key, out code, out name, out where);
+            try
+            {
+                accessManager.SqlConnectionOpen(DataBase.SalesDB);
+
+                var codes = new Dictionary<int, string>();
+                foreach (DataRow r in accessManager.GetDataTableByText("SELECT EmpInfoId, EmpMasterCode FROM tblEmpGeneralInfo WITH (NOLOCK)", null).Rows)
+                    codes[Convert.ToInt32(r[0])] = Convert.ToString(r[1]);
+
+                // ids are ints, safe to inline
+                DataTable rows = accessManager.GetDataTableByText(
+                    "SELECT " + key + ", TaggedSalesPersonIds FROM " + table + " WITH (NOLOCK) WHERE " + key + " IN (" + string.Join(",", ids) + ")", null);
+
+                foreach (DataRow r in rows.Rows)
+                {
+                    var tags = new List<int>();
+                    foreach (string t in Convert.ToString(r["TaggedSalesPersonIds"]).Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        int v;
+                        if (int.TryParse(t.Trim(), out v)) tags.Add(v);
+                    }
+
+                    tags.RemoveAll(fromSpIds.Contains);
+                    if (!tags.Contains(toSpId)) tags.Add(toSpId);
+
+                    var up = new List<SqlParameter>
+                    {
+                        new SqlParameter("@id", Convert.ToInt32(r[0])),
+                        new SqlParameter("@tIds", string.Join(",", tags)),
+                        new SqlParameter("@tCodes", string.Join(",", tags.Select(x => codes.ContainsKey(x) ? codes[x] : x.ToString())))
+                    };
+                    accessManager.ExecuteNonQueryByText(
+                        "UPDATE " + table + " SET TaggedSalesPersonIds=@tIds, TaggedSalesPersonCodes=@tCodes WHERE " + key + "=@id", up);
+                }
+                return rows.Rows.Count;
+            }
+            catch
+            {
+                accessManager.SqlConnectionClose(true);
+                throw;
+            }
+            finally { accessManager.SqlConnectionClose(); }
+        }
+
+        // Both master tables hold doctor and customer rows, so one code is matched in both (single batch = atomic).
+        public void SetActiveByCode(string code, bool active, string userId)
+        {
+            try
+            {
+                accessManager.SqlConnectionOpen(DataBase.SalesDB);
+                accessManager.ExecuteNonQueryByText(
+                    "UPDATE tblDoctorMaster SET IsActive=@a, UpdateBy=@u, UpdateDate=GETDATE() WHERE DoctorCode=@c; " +
+                    "UPDATE tblCustMaster SET IsActive=@a, UpdateBy=@u, UpdateDate=GETDATE() WHERE CustomerCode=@c;",
+                    new List<SqlParameter> { new SqlParameter("@a", active), new SqlParameter("@c", code), new SqlParameter("@u", userId) });
+            }
+            catch
+            {
+                accessManager.SqlConnectionClose(true);
+                throw;
+            }
+            finally { accessManager.SqlConnectionClose(); }
+        }
+
+        // UserId -> display name (employee name, else login name) for the "Update By" column.
+        public DataTable GetUserNames()
+        {
+            try
+            {
+                accessManager.SqlConnectionOpen(DataBase.SalesDB);
+                return accessManager.GetDataTableByText(
+                    "SELECT CAST(u.UserId AS nvarchar(50)) AS UserId, COALESCE(NULLIF(e.EmpName, ''), u.UserName) AS Name " +
+                    "FROM tblUser u WITH (NOLOCK) LEFT JOIN tblEmpGeneralInfo e WITH (NOLOCK) ON e.EmpInfoId = u.EmpInfoId", null);
+            }
+            finally { accessManager.SqlConnectionClose(); }
+        }
+
         public DataTable GetCustomerList(string Parm)
         {
             try

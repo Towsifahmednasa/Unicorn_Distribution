@@ -1,4 +1,4 @@
-<%@ Page Title="" Language="C#" MasterPageFile="~/MasterPages/NewMasterPage.master" AutoEventWireup="true" CodeFile="UserTrackingList.aspx.cs" Inherits="UserTracking_UserTrackingList" %>
+﻿<%@ Page Title="" Language="C#" MasterPageFile="~/MasterPages/NewMasterPage.master" AutoEventWireup="true" CodeFile="UserTrackingList.aspx.cs" Inherits="UserTracking_UserTrackingList" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="head" Runat="Server">
 </asp:Content>
@@ -180,8 +180,11 @@
 
 
         function LoadMap(result) {
-            if (!result || result.length === 0) {
-                BindLocationTable([]);
+            // rows with no GPS fix (NULL lat/long) blow up Leaflet with NaN; keep them in the table, skip them on the map
+            result = (result || []).filter(function (r) {
+                return isFinite(parseFloat(r.LatValue)) && isFinite(parseFloat(r.LongValue));
+            });
+            if (result.length === 0) {
                 if (mymap != undefined && mymap != null) {
                     mymap.eachLayer(function (layer) {
                         if (!(layer instanceof L.TileLayer)) {

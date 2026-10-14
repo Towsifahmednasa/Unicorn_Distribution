@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -155,10 +155,12 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
             decimal totalInvoice = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("InvoiceAmount") ?? 0);
             decimal totalPaid = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("PaidAmount") ?? 0);
             decimal totalDiscount = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("Discount") ?? 0);
-            decimal totalAitVat = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("AitVatAmount") ?? 0);
+            decimal totalVat = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("PayVATAmount") ?? 0);
+            decimal totalAit = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("AITAmount") ?? 0);
             decimal totalPayAll = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("TotalPay") ?? 0);
+            decimal totalAdjustment = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("AdjustmentAmount") ?? 0);
 
-            lblCount.Text = "Total Pay Amount (TP+Vat) : " + totalPayAll.ToString("N2");
+            lblCount.Text = "Total Pay Amount (TP+VAT+AIT) : " + totalPayAll.ToString("N2") + " | Adjustment : " + totalAdjustment.ToString("N2");
 
             if (loadGridView.FooterRow != null)
             {
@@ -181,17 +183,27 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
                 loadGridView.FooterRow.Cells[17].HorizontalAlign = HorizontalAlign.Right;
                 loadGridView.FooterRow.Cells[17].Font.Bold = true;
 
-                // 18: AIT + VAT
-                loadGridView.FooterRow.Cells[18].Text = totalAitVat.ToString("N2");
+                // 18: VAT
+                loadGridView.FooterRow.Cells[18].Text = totalVat.ToString("N2");
                 loadGridView.FooterRow.Cells[18].HorizontalAlign = HorizontalAlign.Right;
                 loadGridView.FooterRow.Cells[18].Font.Bold = true;
+
+                // 19: AIT
+                loadGridView.FooterRow.Cells[19].Text = totalAit.ToString("N2");
+                loadGridView.FooterRow.Cells[19].HorizontalAlign = HorizontalAlign.Right;
+                loadGridView.FooterRow.Cells[19].Font.Bold = true;
+
+                // 20: Adjustment (Bad Debt / Promotional Expense)
+                loadGridView.FooterRow.Cells[20].Text = totalAdjustment.ToString("N2");
+                loadGridView.FooterRow.Cells[20].HorizontalAlign = HorizontalAlign.Right;
+                loadGridView.FooterRow.Cells[20].Font.Bold = true;
             }
         }
         else
         {
             loadGridView.DataSource = null;
             loadGridView.DataBind();
-            lblCount.Text = "Total Pay Amount (TP+Vat) : " + 0.ToString("N2");
+            lblCount.Text = "Total Pay Amount (TP+VAT+AIT) : " + 0.ToString("N2");
         }
     }
 
@@ -206,7 +218,7 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
             summaryGridView.DataSource = comUnitDetailDataTable;
             summaryGridView.DataBind();
 
-            decimal totalPaid = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("PaidAmount") ?? 0);
+            decimal totalPaid = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("TotalPay") ?? 0);
 
             lblSummaryCount.Text = "Total Collection Amount : " + totalPaid.ToString("N2");
 
@@ -232,10 +244,14 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
     protected void fromDateTextBox_TextChanged(object sender, EventArgs e)
     {
         DateTime Fromd = Convert.ToDateTime("01-Apr-2022");
-        DateTime inputDateTime = Convert.ToDateTime(InvoiceDateTextBox.Text);
+        DateTime inputDateTime;
+        if (!DateTime.TryParse(InvoiceDateTextBox.Text, out inputDateTime))
+        {
+            return; // empty or invalid date typed; validation happens on search
+        }
         if (inputDateTime < Fromd)
         {
-            InvoiceDateTextBox.Text = DateTime.Now.ToString("01 April, 2022");
+            InvoiceDateTextBox.Text = "01 April, 2022";
         }
     }
 
@@ -403,7 +419,7 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
                     {
                         sb.Append("<td class='text-cell' style='text-align: center;'>" + sl + "</td>");
                     }
-                    else if (dataField == "InvoiceAmount" || dataField == "PaidAmount" || dataField == "Discount" || dataField == "AitVatAmount")
+                    else if (dataField == "InvoiceAmount" || dataField == "PaidAmount" || dataField == "Discount" || dataField == "PayVATAmount" || dataField == "AITAmount" || dataField == "AdjustmentAmount")
                     {
                         // Clean amount for excel numeric cell
                         decimal val = 0;
@@ -432,7 +448,7 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
                     BoundField bf = loadGridView.Columns[colIndex] as BoundField;
                     string dataField = bf != null ? bf.DataField : "";
 
-                    if (dataField == "InvoiceAmount" || dataField == "PaidAmount" || dataField == "Discount" || dataField == "AitVatAmount")
+                    if (dataField == "InvoiceAmount" || dataField == "PaidAmount" || dataField == "Discount" || dataField == "PayVATAmount" || dataField == "AITAmount" || dataField == "AdjustmentAmount")
                     {
                         decimal val = 0;
                         decimal.TryParse(cellText.Replace(",", ""), out val);
@@ -519,7 +535,7 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
                         // SL column
                         sb.Append("<td class='text-cell' style='text-align: center;'>" + sl + "</td>");
                     }
-                    else if (dataField == "PaidAmount")
+                    else if (dataField == "TotalPay")
                     {
                         decimal val = 0;
                         decimal.TryParse(cellText.Replace(",", ""), out val);
@@ -547,7 +563,7 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
                     BoundField bf = summaryGridView.Columns[colIndex] as BoundField;
                     string dataField = bf != null ? bf.DataField : "";
 
-                    if (dataField == "PaidAmount")
+                    if (dataField == "TotalPay")
                     {
                         decimal val = 0;
                         decimal.TryParse(cellText.Replace(",", ""), out val);

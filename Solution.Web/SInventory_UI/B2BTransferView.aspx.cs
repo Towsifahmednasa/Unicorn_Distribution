@@ -160,7 +160,7 @@ public partial class SInventory_UI_B2BTransferView : System.Web.UI.Page
 
     public void Popup(string reqId)
     {
-        string url = "../SInventory_RPTVIEW/TransferStockReceiveReportViewer.aspx?ChalanId=" + reqId+ "&TYpe=" + "Report";
+        string url = "B2BTransferPrint.aspx?ChalanNo=" + Server.UrlEncode(reqId);
         // string fullURL = "window.open('" + url + "', '_blank', 'height=600,width=900,status=yes,toolbar=no,menubar=no,location=no,scrollbars=yes,resizable=no,titlebar=no' );";
         string fullURL = "var Mleft = (screen.width/2)-(950/2);var Mtop = (screen.height/2)-(700/2);window.open( '" + url + "', null, 'height=700,width=950,status=yes,toolbar=no,addressbar=no, scrollbars=yes,menubar=no,location=no,top=\'+Mtop+\', left=\'+Mleft+\'' );";
         ScriptManager.RegisterStartupScript(this, typeof(string), "OPEN_WINDOW", fullURL, true);

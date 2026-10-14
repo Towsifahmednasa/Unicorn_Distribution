@@ -1,134 +1,76 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Data;
 using System.Linq;
-using System.Web;
-using System.Web.UI;
-using System.Web.UI.HtmlControls;
-using System.Web.UI.WebControls;
-using System.Web.UI.WebControls.WebParts;
-using CrystalDecisions.Shared;
-using CrystalDecisions.CrystalReports.Engine;
 using Library.BLL.SInventory_BLL;
-using Library.CrystalReports.SInventory_RPT;
 
 public partial class SInventory_RPTVIEW_ReturnInvoiceReportViewer2 : System.Web.UI.Page
 {
-    ReportDocument rptdoc = new ReportDocument();
     StockTransportOrderReportBLL aOrderReportBll = new StockTransportOrderReportBLL();
     InvoiceBLL aInvoiceBll = new InvoiceBLL();
-    protected void Page_Init(object sender, EventArgs e)
+
+    protected void Page_Load(object sender, EventArgs e)
     {
-        try
+        if (IsPostBack) return;
+
+        string invNo = Server.UrlDecode(Request.QueryString["InvNo"]);
+        DataTable code = aInvoiceBll.FindInvoiceCode(invNo);
+        if (code.Rows.Count == 0) { NoData(); return; }
+
+        string invColl = aInvoiceBll.InvoiceNoCollectionFormate(code.Rows[0]["ReturnInvoiceNo"].ToString());
+        DataTable main = aInvoiceBll.RInvoiceMainDataForReportBLL(invColl);
+        if (main.Rows.Count == 0) { NoData(); return; }
+
+        DataRow m = main.Rows[0];
+        DataTable lines = aInvoiceBll.RInvoiceDetailDataForReportBLL(invColl);
+        DataTable company = aOrderReportBll.CompanyInfoBLL();
+
+        if (company.Rows.Count > 0)
         {
-            string invNo = Server.UrlDecode(Request.QueryString["InvNo"]);
-            DataTable dt = aInvoiceBll.FindInvoiceCode(invNo);
-            string invColl1 = dt.Rows[0]["ReturnInvoiceNo"].ToString();
-            string invColl = aInvoiceBll.InvoiceNoCollectionFormate(invColl1);
-
-            DataTable mainDataTable = aInvoiceBll.RInvoiceMainDataForReportBLL(invColl).Copy();
-            DataTable detailDataTable = aInvoiceBll.RInvoiceDetailDataForReportBLL(invColl).Copy();
-            DataTable companyInfoDataTable = aOrderReportBll.CompanyInfoBLL().Copy();
-
-            //rptInvoiceForCustomer aRptInvoiceForCustomer = new rptInvoiceForCustomer();
-
-            DataSet Ds = new DataSet();
-
-            mainDataTable.TableName = "mainDataTable";
-            detailDataTable.TableName = "detailDataTable";
-            companyInfoDataTable.TableName = "companyInfoDataTable";
-            Ds.Tables.Add(mainDataTable);
-            Ds.Tables.Add(detailDataTable);
-            Ds.Tables.Add(companyInfoDataTable);
-            //aRptInvoiceForCustomer.SetDataSource(Ds);
-            //crvInvoiceReport.ReportSource = aRptInvoiceForCustomer;
-
-
-            //aRptInvoiceForCustomer.SetDataSource(Ds);
-           // aRptInvoiceForCustomer.ExportToHttpResponse(ExportFormatType.PortableDocFormat, Response, true,
-               // "ProformaInvoice-" + invNo);
-
-
-            rptdoc.Load(ReportPath("rptReturnInvoiceForCustomer.rpt"));
-            rptdoc.SetDataSource(Ds);
-
-            crvInvoiceReport.ReportSource = rptdoc;
-            crvInvoiceReport.DataBind();
-            //rptdoc.Load(ReportPath("rptInvoiceForCustomer.rpt"));
-            //rptdoc.SetDataSource(Ds);
-
-            //rptdoc.ExportToHttpResponse(ExportFormatType.PortableDocFormat, Response, true,
-            //    "ReturnInvoice-" + invNo);
-
-
-            //crvInvoiceReport.ReportSource = rptdoc;
-            //crvInvoiceReport.DataBind();
+            litCompanyName.Text = Server.HtmlEncode(company.Rows[0]["CompanyName"].ToString());
+            litCompanyAddress.Text = Server.HtmlEncode(company.Rows[0]["Address"].ToString());
         }
-        catch (Exception ex)
-        {
 
-            throw ex;
-        }
-       
+        litUnitCode.Text = Server.HtmlEncode(m["ComUnitCode"].ToString());
+        litUnitName.Text = Server.HtmlEncode(m["CompanyName"].ToString());
+        litUnitAddress.Text = Server.HtmlEncode(m["CUAddress"].ToString());
+        litInvoiceNo.Text = Server.HtmlEncode(m["InvoiceNo"].ToString());
+        litInvoiceDate.Text = Date(m["CreateDate"], "dd-MMM-yyyy hh:mm tt");
+        litOrderNo.Text = Server.HtmlEncode(m["OrderNo"].ToString().Trim() == "" ? "No order" : m["OrderNo"].ToString());
+        litOrderDate.Text = Date(m["OrderDate"], "dd-MMM-yyyy");
+
+        litCustomerCode.Text = Server.HtmlEncode(m["CustomerCode"].ToString());
+        litCustomerName.Text = Server.HtmlEncode(m["CustomerName"].ToString());
+        litCustomerAddress.Text = Server.HtmlEncode((m["CMAddress"].ToString() + " " + m["Addrees2"].ToString()).Trim());
+        litPaymentType.Text = Server.HtmlEncode(m["PaymentTypeName"].ToString());
+        litMia.Text = Server.HtmlEncode((m["MiaCode"].ToString() + " " + m["MiaName"].ToString()).Trim());
+        litPrintDate.Text = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+        litTotalQty.Text = lines.AsEnumerable().Sum(r => r.IsNull("Quantity") ? 0m : Convert.ToDecimal(r["Quantity"])).ToString("#,##0.##");
+        litTpTotal.Text = Money(m["TpTotal"]);
+        litTpDiscount.Text = Money(m["TpDiscount"]);
+        litTpVat.Text = Money(m["TpVat"]);
+        litTpGrandTotal.Text = Money(m["TpGrandTotal"]);
+
+        rptLines.DataSource = lines;
+        rptLines.DataBind();
     }
-    private void ShowReport(DataSet dsDataSet, string reportName)
-    {
-        if (dsDataSet.Tables[0].Rows.Count > 0)
-        {
-            rptdoc.Load(ReportPath(reportName));
-            rptdoc.SetDataSource(dsDataSet);
-            crvInvoiceReport.ReportSource = rptdoc;
-            crvInvoiceReport.DataBind();
 
-        }
-        else
-        {
-            //lblMsg.Text = "No Data Found!!!!";
-        }
-    }
-    private string ReportPath(string rptName)
+    private void NoData()
     {
-        return Convert.ToString(Server.MapPath("~\\Reports\\CrystalReports\\" + rptName));
+        pnlReport.Visible = false;
+        lblMessage.Visible = true;
+        lblMessage.Text = "No Data Found!!";
     }
-    protected void closeButton_Click(object sender, EventArgs e)
+
+    private static string Money(object v)
     {
-        ScriptManager.RegisterStartupScript(this, typeof(string), "Close", "window.close()", true);
+        decimal d;
+        return decimal.TryParse(Convert.ToString(v), out d) ? d.ToString("#,##0.00") : "0.00";
     }
-    //protected void crViewer_Unload(object sender, EventArgs e)
-    //{
-    //    if (this.rptdoc != null)
-    //    {
-    //        rptdoc.Close();
-    //        rptdoc.Dispose();
-    //        crvInvoiceReport.Dispose();
-    //    }
-    //}
-    //protected void crViewer_Disposed(object sender, EventArgs e)
-    //{
-    //    if (this.rptdoc != null)
-    //    {
-    //        rptdoc.Close();
-    //        rptdoc.Dispose();
-    //        crvInvoiceReport.Dispose();
-    //    }
-    //}
-    protected void crvInvoiceReport_Disposed(object sender, EventArgs e)
+
+    private static string Date(object v, string fmt)
     {
-        if (this.rptdoc != null)
-        {
-            rptdoc.Close();
-            rptdoc.Dispose();
-            crvInvoiceReport.Dispose();
-        }
-       
-    }
-    protected void crvInvoiceReport_Unload(object sender, EventArgs e)
-    {
-        if (this.rptdoc != null)
-        {
-            rptdoc.Close();
-            rptdoc.Dispose();
-            crvInvoiceReport.Dispose();
-        }
+        DateTime d;
+        return DateTime.TryParse(Convert.ToString(v), out d) ? d.ToString(fmt) : "";
     }
 }

@@ -147,6 +147,7 @@
     <Compile Include="SettingPanel_DAL\UserSettingPanelDal.cs" />
     <Compile Include="SInventory_DAL\AccountSettingsDal.cs" />
     <Compile Include="SInventory_DAL\AppSetupDAL.cs" />
+    <Compile Include="SInventory_DAL\InvoiceAdjustmentDAL.cs" />
     <Compile Include="SInventory_DAL\AreaWiseMonthlyInventoryReportDal.cs" />
     <Compile Include="SInventory_DAL\AuditReportOneDal.cs" />
     <Compile Include="SInventory_DAL\B2BTransferViewDal.cs" />

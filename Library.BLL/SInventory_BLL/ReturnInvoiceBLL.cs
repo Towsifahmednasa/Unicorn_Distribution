@@ -559,6 +559,11 @@ namespace Library.BLL.SInventory_BLL
             return aInvoiceDal.getInvo(CustomerMasterId);
         }
 
+        public DataTable GetCustomerInvoices(int customerMasterId)
+        {
+            return aInvoiceDal.GetCustomerInvoices(customerMasterId);
+        }
+
         public DataTable ProductInfo(string productId)
         {
             return aInvoiceDal.LoadProduct(productId);

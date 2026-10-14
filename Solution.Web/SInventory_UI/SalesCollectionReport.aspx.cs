@@ -90,6 +90,8 @@ public partial class SInventory_UI_SalesCollectionReport : System.Web.UI.Page
                 decimal totalBank = 0;
                 decimal totalbKash = 0;
                 decimal totalHand = 0;
+                decimal totalVat = 0;
+                decimal totalAit = 0;
 
                 foreach (DataRow row in dt.Rows)
                 {
@@ -98,6 +100,8 @@ public partial class SInventory_UI_SalesCollectionReport : System.Web.UI.Page
                     totalBank += Convert.ToDecimal(row["BankAmount"] == DBNull.Value ? 0 : row["BankAmount"]);
                     totalbKash += Convert.ToDecimal(row["bKashAmount"] == DBNull.Value ? 0 : row["bKashAmount"]);
                     totalHand += Convert.ToDecimal(row["HandCash"] == DBNull.Value ? 0 : row["HandCash"]);
+                    totalVat += Convert.ToDecimal(row["VATAmount"] == DBNull.Value ? 0 : row["VATAmount"]);
+                    totalAit += Convert.ToDecimal(row["AITAmount"] == DBNull.Value ? 0 : row["AITAmount"]);
                 }
 
                 // Bind sums to Footer
@@ -125,12 +129,21 @@ public partial class SInventory_UI_SalesCollectionReport : System.Web.UI.Page
                     loadGridView.FooterRow.Cells[14].Text = totalHand.ToString("N2");
                     loadGridView.FooterRow.Cells[14].Font.Bold = true;
                     loadGridView.FooterRow.Cells[14].HorizontalAlign = HorizontalAlign.Right;
+
+                    loadGridView.FooterRow.Cells[15].Text = totalVat.ToString("N2");
+                    loadGridView.FooterRow.Cells[15].Font.Bold = true;
+                    loadGridView.FooterRow.Cells[15].HorizontalAlign = HorizontalAlign.Right;
+
+                    loadGridView.FooterRow.Cells[16].Text = totalAit.ToString("N2");
+                    loadGridView.FooterRow.Cells[16].Font.Bold = true;
+                    loadGridView.FooterRow.Cells[16].HorizontalAlign = HorizontalAlign.Right;
                 }
 
                 // Bind Summary Highlights
                 lblTotalBank.Text = totalBank.ToString("N2");
                 lblTotalbKash.Text = totalbKash.ToString("N2");
                 lblTotalHandCash.Text = totalHand.ToString("N2");
+                // Channel amounts already include each payment's VAT + AIT
                 lblGrandTotal.Text = (totalBank + totalbKash + totalHand).ToString("N2");
             }
             else

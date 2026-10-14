@@ -441,8 +441,7 @@
                                                         </div>
                                                         <span class="text-sm-left text-c-red">*</span>
                                                     </div>
-
-                                                    <div class="form-group row">
+                                                                                                        <div class="form-group row">
                                                          <label for="mainName" class="col-sm-3 col-form-label">Customer:</label>
 
                                                          <div class="col-sm-5">
@@ -932,7 +931,17 @@
                                                                     </ItemTemplate>
                                                                 </asp:TemplateField>
 
-                                                                <asp:TemplateField HeaderText="AIT / VAT">
+                                                                <asp:TemplateField HeaderText="VAT">
+                                                                    <ItemTemplate>
+                                                                        <asp:TextBox ID="vatTextBox" Width="80px" runat="server" Text="0.00" AutoPostBack="True"
+                                                                            CssClass="form-control form-control-sm" OnTextChanged="vatTextBox_TextChanged"></asp:TextBox>
+                                                                        <asp:FilteredTextBoxExtender ID="FilteredTextBoxExtenderVat" runat="server"
+                                                                            Enabled="True" TargetControlID="vatTextBox" FilterType="Custom" ValidChars="0123456789.">
+                                                                        </asp:FilteredTextBoxExtender>
+                                                                    </ItemTemplate>
+                                                                </asp:TemplateField>
+
+                                                                <asp:TemplateField HeaderText="AIT">
                                                                     <ItemTemplate>
                                                                         <asp:TextBox ID="aitTextBox" Width="80px" runat="server" Text="0.00" AutoPostBack="True"
                                                                             CssClass="form-control form-control-sm" OnTextChanged="aitTextBox_TextChanged"></asp:TextBox>

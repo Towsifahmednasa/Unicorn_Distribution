@@ -543,9 +543,12 @@ WHERE ReqId = @ReqId";
             @ComUnitId, @StockQty, @DamageQty, @StockRcvDate, @ReqId, @ReqChildId,
             'Available', @StockInTransfarId,
             'Receive',
-            ISNULL((SELECT TOP 1 UnitPrice FROM tblStockInTransfar 
+            ISNULL((SELECT TOP 1 UnitPrice FROM tblStockInTransfar
                     WHERE StockInTransfarId = @StockInTransfarId), 0),
-            ISNULL((SELECT TOP 1 TotalPriceAmount FROM tblStockInTransfar 
+            -- Always qty x rate: TotalPriceAmount can disagree with UnitPrice
+            -- (partial receives, upstream rate edits) and then the depot value
+            -- ledger never balances against issues costed at CostPerUnit.
+            @StockQty * ISNULL((SELECT TOP 1 UnitPrice FROM tblStockInTransfar
                     WHERE StockInTransfarId = @StockInTransfarId), 0),
             @DCStoreId,
             @ReceiveDate
