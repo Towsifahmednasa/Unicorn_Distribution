@@ -152,7 +152,6 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
             loadGridView.DataSource = comUnitDetailDataTable;
             loadGridView.DataBind();
 
-            decimal totalInvoice = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("InvoiceAmount") ?? 0);
             decimal totalPaid = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("PaidAmount") ?? 0);
             decimal totalDiscount = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("Discount") ?? 0);
             decimal totalVat = comUnitDetailDataTable.AsEnumerable().Sum(row => row.Field<decimal?>("PayVATAmount") ?? 0);
@@ -168,11 +167,6 @@ public partial class SInventory_UI_SC_CustomerPaymentReport : System.Web.UI.Page
                 loadGridView.FooterRow.Cells[0].Font.Bold = true;
                 
                 // Align & Display Sum in Footer (Shifted +1 due to SL column)
-                // 15: Invoice Amount
-                loadGridView.FooterRow.Cells[15].Text = totalInvoice.ToString("N2");
-                loadGridView.FooterRow.Cells[15].HorizontalAlign = HorizontalAlign.Right;
-                loadGridView.FooterRow.Cells[15].Font.Bold = true;
-
                 // 16: Paid Amount
                 loadGridView.FooterRow.Cells[16].Text = totalPaid.ToString("N2");
                 loadGridView.FooterRow.Cells[16].HorizontalAlign = HorizontalAlign.Right;

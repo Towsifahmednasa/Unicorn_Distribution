@@ -1375,27 +1375,27 @@ LEFT JOIN tblPaymentType PT ON IV.PaymentTypeId = PT.PaymentTypeId
 LEFT JOIN dbo.tblEmpGeneralInfo emp ON (ord.MIOId IS NOT NULL AND ord.MIOId = emp.EmpInfoId) OR (NULLIF(ord.OrderSenderCode, '') IS NOT NULL AND ord.OrderSenderCode = emp.EmpMasterCode)
 LEFT JOIN tblUser U ON IV.UserId = U.UserId
 
--- Total Due Subquery (TS)
+-- Total Due Subquery (TS) - same formula as sp_Report_CustomerInvoiceAgingOutstanding:
+-- per-invoice Outstanding = (Sum(DeliveryNetAmount) + DeliveryCharge) - Sum(PaymentAmount + Discount + AIT), only positive rows
 LEFT JOIN (
-    SELECT 
-        INV.CustomerMasterId, 
+    SELECT
+        INV.CustomerMasterId,
         INV.ComUnitId,
-        SUM(ISNULL(DeliveryTpGrandTotal, 0)) - (
-            SUM(ISNULL(PaymentAmount, 0)) + 
-            SUM(ISNULL(AIT, 0)) + 
-            SUM(ISNULL(DiscountOnPayment, 0)) +
-            SUM(ISNULL(RTN.ReturnAmount, 0))
-        ) AS Due
-    FROM tblInvoice AS INV
+        SUM(CASE WHEN (ISNULL(InvS.NetAmt, 0) + ISNULL(INV.DeliveryCharge, 0)) - ISNULL(PayS.Paid, 0) > 0
+                 THEN (ISNULL(InvS.NetAmt, 0) + ISNULL(INV.DeliveryCharge, 0)) - ISNULL(PayS.Paid, 0)
+                 ELSE 0 END) AS Due
+    FROM tblInvoice AS INV WITH (NOLOCK)
     LEFT JOIN (
-        SELECT M.CommonPK_ID, SUM(DebitAmountBDT) AS ReturnAmount 
-        FROM CSTL_ACCDB_Unicorn..tblDebitCreditVoucherMaster AS M
-        LEFT JOIN CSTL_ACCDB_Unicorn..tblDebitCreditVoucherDetail AS D ON M.VoucherMasterId = D.VoucherMasterId
-        WHERE ISNULL(M.IsInventoryValuation, 0) = 0 AND M.TableID = 2018 
-        GROUP BY M.CommonPK_ID
-    ) AS RTN ON INV.InvoiceId = RTN.CommonPK_ID
+        SELECT InvoiceId, SUM(ISNULL(DeliveryNetAmount, 0)) AS NetAmt
+        FROM tblInvoiceDetail WITH (NOLOCK)
+        GROUP BY InvoiceId
+    ) AS InvS ON INV.InvoiceId = InvS.InvoiceId
+    LEFT JOIN (
+        SELECT InvoiceId, SUM(ISNULL(PaymentAmount, 0) + ISNULL(Discount, 0) + ISNULL(AIT, 0)) AS Paid
+        FROM tblCustPayDetail WITH (NOLOCK)
+        GROUP BY InvoiceId
+    ) AS PayS ON INV.InvoiceId = PayS.InvoiceId
     GROUP BY INV.CustomerMasterId, INV.ComUnitId
-    HAVING SUM(ISNULL(DeliveryTpGrandTotal, 0)) > 0
 ) AS TS ON ord.CustomerMasterId = TS.CustomerMasterId AND CU.ComUnitId = TS.ComUnitId
 
 -- Credit Limit Subquery (LM)
@@ -1509,27 +1509,27 @@ left join (select InvoiceId, sum(tblInvoiceDetail.NetAmount) NetAmount from tblI
 	 LEFT JOIN tblOrder  with (nolock) on tblOrder.OrderId =IV.OrderId 
     LEFT JOIN dbo.tblEmpGeneralInfo MIA  with (nolock) ON (tblOrder.MIOId IS NOT NULL AND tblOrder.MIOId = MIA.EmpInfoId) OR (NULLIF(tblOrder.OrderSenderCode, '') IS NOT NULL AND tblOrder.OrderSenderCode = MIA.EmpMasterCode)  
 
--- Total Due Subquery (TS)
+-- Total Due Subquery (TS) - same formula as sp_Report_CustomerInvoiceAgingOutstanding:
+-- per-invoice Outstanding = (Sum(DeliveryNetAmount) + DeliveryCharge) - Sum(PaymentAmount + Discount + AIT), only positive rows
 LEFT JOIN (
-    SELECT 
-        INV.CustomerMasterId, 
+    SELECT
+        INV.CustomerMasterId,
         INV.ComUnitId,
-        SUM(ISNULL(DeliveryTpGrandTotal, 0)) - (
-            SUM(ISNULL(PaymentAmount, 0)) + 
-            SUM(ISNULL(AIT, 0)) + 
-            SUM(ISNULL(DiscountOnPayment, 0)) +
-            SUM(ISNULL(RTN.ReturnAmount, 0))
-        ) AS Due
-    FROM tblInvoice AS INV
+        SUM(CASE WHEN (ISNULL(InvS.NetAmt, 0) + ISNULL(INV.DeliveryCharge, 0)) - ISNULL(PayS.Paid, 0) > 0
+                 THEN (ISNULL(InvS.NetAmt, 0) + ISNULL(INV.DeliveryCharge, 0)) - ISNULL(PayS.Paid, 0)
+                 ELSE 0 END) AS Due
+    FROM tblInvoice AS INV WITH (NOLOCK)
     LEFT JOIN (
-        SELECT M.CommonPK_ID, SUM(DebitAmountBDT) AS ReturnAmount 
-        FROM CSTL_ACCDB_Unicorn..tblDebitCreditVoucherMaster AS M
-        LEFT JOIN CSTL_ACCDB_Unicorn..tblDebitCreditVoucherDetail AS D ON M.VoucherMasterId = D.VoucherMasterId
-        WHERE ISNULL(M.IsInventoryValuation, 0) = 0 AND M.TableID = 2018 
-        GROUP BY M.CommonPK_ID
-    ) AS RTN ON INV.InvoiceId = RTN.CommonPK_ID
+        SELECT InvoiceId, SUM(ISNULL(DeliveryNetAmount, 0)) AS NetAmt
+        FROM tblInvoiceDetail WITH (NOLOCK)
+        GROUP BY InvoiceId
+    ) AS InvS ON INV.InvoiceId = InvS.InvoiceId
+    LEFT JOIN (
+        SELECT InvoiceId, SUM(ISNULL(PaymentAmount, 0) + ISNULL(Discount, 0) + ISNULL(AIT, 0)) AS Paid
+        FROM tblCustPayDetail WITH (NOLOCK)
+        GROUP BY InvoiceId
+    ) AS PayS ON INV.InvoiceId = PayS.InvoiceId
     GROUP BY INV.CustomerMasterId, INV.ComUnitId
-    HAVING SUM(ISNULL(DeliveryTpGrandTotal, 0)) > 0
 ) AS TS ON tblOrder.CustomerMasterId = TS.CustomerMasterId AND CU.ComUnitId = TS.ComUnitId
 
 -- Credit Limit Subquery (LM)
